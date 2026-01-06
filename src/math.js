@@ -15,4 +15,17 @@ function multiply(a, b) {
   return a * b;
 }
 
-module.exports = { add, multiply };
+/**
+ * Divides the first number by the second number.
+ * @param {number} a - Dividend
+ * @param {number} b - Divisor
+ * @returns {number} The quotient of a divided by b, or 0 if either is null/undefined
+ */
+function divide(a, b) {
+  if (a == null || b == null) {
+    return 0;
+  }
+  return a / b;
+}
+
+module.exports = { add, multiply, divide };
