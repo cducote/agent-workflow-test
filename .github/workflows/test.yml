@@ -65,6 +65,15 @@ jobs:
             echo "::warning::No changes detected in diff"
           fi
 
+      - name: Validate API Key
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::ANTHROPIC_API_KEY secret is not configured. Please add it to repository secrets."
+            exit 1
+          fi
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
       - name: Claude Review
         id: review
         run: |
@@ -93,8 +102,8 @@ jobs:
           echo "" >> prompt.txt
           echo "--- DIFF END ---" >> prompt.txt
 
-          # Pass prompt via file to avoid any shell interpretation
-          REVIEW_RAW=$(claude -p "$(cat prompt.txt)")
+          # Pass prompt via stdin to avoid shell interpolation and prevent API key exposure in logs
+          REVIEW_RAW=$(cat prompt.txt | claude --print)
 
           # Strip markdown code fences if present (handle both ```json and ``` variants)
           # First try to extract content between code fences
@@ -207,9 +216,10 @@ jobs:
   notify-pr:
     needs: [test, ai-review]
     runs-on: ubuntu-latest
-    if: always() && needs.test.result == 'success' && (needs.ai-review.result == 'success' || needs.ai-review.result == 'skipped') && github.event_name == 'pull_request'
+    if: needs.test.result == 'success' && (needs.ai-review.result == 'success' || needs.ai-review.result == 'skipped') && github.event_name == 'pull_request'
     steps:
       - name: Discord Notification - PR Ready
+        continue-on-error: true
         run: |
           curl -H "Content-Type: application/json" \
             -d '{
@@ -233,6 +243,7 @@ jobs:
     if: success() && github.event_name == 'push'
     steps:
       - name: Discord Notification - PR Merged
+        continue-on-error: true
         env:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
           COMMIT_URL: ${{ github.event.head_commit.url }}
