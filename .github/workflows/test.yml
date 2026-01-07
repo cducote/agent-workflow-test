@@ -34,53 +34,91 @@ jobs:
   ai-review:
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && needs.test.result == 'success'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Fetch main branch
+        run: |
+          git fetch origin main || {
+            echo "::error::Failed to fetch origin/main. Ensure main branch exists and is accessible."
+            exit 1
+          }
+
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Get PR Diff
-        run: git diff origin/main...HEAD > diff.txt
+        run: |
+          # Find merge base to get accurate diff
+          MERGE_BASE=$(git merge-base origin/main HEAD 2>/dev/null) || {
+            echo "::error::Could not find merge base with origin/main"
+            exit 1
+          }
+          git diff "$MERGE_BASE"...HEAD > diff.txt
+
+          # Verify diff was generated
+          if [ ! -s diff.txt ]; then
+            echo "::warning::No changes detected in diff"
+          fi
 
       - name: Claude Review
         id: review
         run: |
-          REVIEW_RAW=$(cat diff.txt | claude -p \
-            "Review this code diff. Check for:
-            - Bugs or logic errors
-            - Security vulnerabilities
-            - Missing edge cases
-            - Code style issues
+          # Read diff into variable to avoid piping user content through shell
+          DIFF_CONTENT=$(cat diff.txt)
 
-            Respond with JSON only, no other text:
-            {
-              \"verdict\": \"APPROVE\" or \"REQUEST_CHANGES\",
-              \"summary\": \"one line summary\",
-              \"issues\": [\"issue 1\", \"issue 2\"]
-            }
+          # Use heredoc to pass diff content safely, avoiding shell interpretation
+          REVIEW_RAW=$(claude -p "$(cat <<'PROMPT_EOF'
+          Review this code diff. Check for:
+          - Bugs or logic errors
+          - Security vulnerabilities
+          - Missing edge cases
+          - Code style issues
 
-            Be strict but fair. Only APPROVE if code is production-ready.")
+          Respond with JSON only, no other text:
+          {
+            "verdict": "APPROVE" or "REQUEST_CHANGES",
+            "summary": "one line summary",
+            "issues": ["issue 1", "issue 2"]
+          }
 
-          # Strip markdown code fences if present
-          REVIEW=$(echo "$REVIEW_RAW" | sed -n '/^```json$/,/^```$/p' | sed '1d;$d')
+          Be strict but fair. Only APPROVE if code is production-ready.
+
+          --- DIFF START ---
+          PROMPT_EOF
+          )
+          $DIFF_CONTENT
+          --- DIFF END ---")
+
+          # Strip markdown code fences if present (handle both ```json and ``` variants)
+          REVIEW=$(echo "$REVIEW_RAW" | sed -n '/^```/,/^```$/p' | sed '1d;$d')
 
           # If no code fences found, use raw output
           if [ -z "$REVIEW" ]; then
             REVIEW="$REVIEW_RAW"
           fi
 
-          echo "VERDICT=$(echo $REVIEW | jq -r '.verdict')" >> $GITHUB_OUTPUT
-          echo "SUMMARY=$(echo $REVIEW | jq -r '.summary')" >> $GITHUB_OUTPUT
-          
+          # Validate JSON before proceeding
+          if ! echo "$REVIEW" | jq empty 2>/dev/null; then
+            echo "::error::Claude returned invalid JSON response"
+            echo "Raw response: $REVIEW_RAW"
+            exit 1
+          fi
+
+          VERDICT=$(echo "$REVIEW" | jq -r '.verdict // "UNKNOWN"')
+          SUMMARY=$(echo "$REVIEW" | jq -r '.summary // "No summary provided"')
+
+          echo "VERDICT=$VERDICT" >> $GITHUB_OUTPUT
+          echo "SUMMARY=$SUMMARY" >> $GITHUB_OUTPUT
+
           # Escape issues array for use in webhook
-          ISSUES=$(echo $REVIEW | jq -c '.issues')
+          ISSUES=$(echo "$REVIEW" | jq -c '.issues // []')
           echo "ISSUES=$ISSUES" >> $GITHUB_OUTPUT
-          
+
           echo "REVIEW<<EOF" >> $GITHUB_OUTPUT
           echo "$REVIEW" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -116,6 +154,7 @@ jobs:
             });
 
       - name: Trigger Fix via Webhook
+        id: webhook
         if: steps.review.outputs.VERDICT == 'REQUEST_CHANGES'
         continue-on-error: true
         env:
@@ -124,16 +163,29 @@ jobs:
           ISSUES: ${{ steps.review.outputs.ISSUES }}
         run: |
           if [ -n "$WEBHOOK_URL" ]; then
-            curl -X POST "$WEBHOOK_URL" \
+            HTTP_CODE=$(curl -s -o response.txt -w "%{http_code}" -X POST "$WEBHOOK_URL" \
               -H "Content-Type: application/json" \
               -d "{
                 \"command\": \"fix_pr\",
                 \"branch\": \"$BRANCH\",
                 \"issues\": $ISSUES
-              }"
+              }")
+
+            if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+              echo "Webhook triggered successfully (HTTP $HTTP_CODE)"
+            else
+              echo "::warning::Webhook request failed with HTTP $HTTP_CODE"
+              echo "Response body:"
+              cat response.txt || echo "(no response body)"
+            fi
           else
-            echo "WEBHOOK_URL not configured, skipping webhook trigger"
+            echo "::notice::WEBHOOK_URL not configured, skipping webhook trigger"
           fi
+
+      - name: Log webhook failure
+        if: steps.webhook.outcome == 'failure'
+        run: |
+          echo "::error::Webhook step failed. Check the webhook URL and ensure the endpoint is accessible."
 
       - name: Fail if changes requested
         if: steps.review.outputs.VERDICT == 'REQUEST_CHANGES'
