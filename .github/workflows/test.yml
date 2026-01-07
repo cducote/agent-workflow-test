@@ -116,14 +116,18 @@ jobs:
 
       - name: Trigger Fix via Webhook
         if: steps.review.outputs.VERDICT == 'REQUEST_CHANGES'
+        env:
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          BRANCH: ${{ github.head_ref }}
+          ISSUES: ${{ steps.review.outputs.ISSUES }}
         run: |
-          curl -X POST ${{ secrets.WEBHOOK_URL }} \
+          curl -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \
-            -d '{
-              "command": "fix_pr",
-              "branch": "${{ github.head_ref }}",
-              "issues": ${{ steps.review.outputs.ISSUES }}
-            }'
+            -d "{
+              \"command\": \"fix_pr\",
+              \"branch\": \"$BRANCH\",
+              \"issues\": $ISSUES
+            }"
 
       - name: Fail if changes requested
         if: steps.review.outputs.VERDICT == 'REQUEST_CHANGES'
@@ -139,7 +143,7 @@ jobs:
           curl -H "Content-Type: application/json" \
             -d '{
               "embeds": [{
-                "title": "🤖 PR Ready for Review, dawg!",
+                "title": "🤖 PR Ready for Review!",
                 "description": "${{ github.event.pull_request.title }}",
                 "url": "${{ github.event.pull_request.html_url }}",
                 "color": 5763719,
