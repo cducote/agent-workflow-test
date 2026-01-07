@@ -196,6 +196,7 @@ jobs:
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
           BRANCH: ${{ github.head_ref }}
           ISSUES: ${{ steps.review.outputs.ISSUES }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           if [ -n "$WEBHOOK_URL" ]; then
             HTTP_CODE=$(curl -s -o response.txt -w "%{http_code}" -X POST "$WEBHOOK_URL" \
@@ -203,6 +204,7 @@ jobs:
               -d "{
                 \"command\": \"fix_pr\",
                 \"branch\": \"$BRANCH\",
+                \"pr_number\": $PR_NUMBER,
                 \"issues\": $ISSUES
               }")
 
