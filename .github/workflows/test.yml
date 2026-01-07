@@ -25,7 +25,81 @@ jobs:
 
       - name: Run tests
         run: npm test
-  
+
+  ai-review:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Get PR Diff
+        run: git diff origin/main...HEAD > diff.txt
+
+      - name: Claude Review
+        id: review
+        run: |
+          REVIEW=$(cat diff.txt | claude -p \
+            "Review this code diff. Check for:
+            - Bugs or logic errors
+            - Security vulnerabilities
+            - Missing edge cases
+            - Code style issues
+            
+            Respond with JSON only, no other text:
+            {
+              \"verdict\": \"APPROVE\" or \"REQUEST_CHANGES\",
+              \"summary\": \"one line summary\",
+              \"issues\": [\"issue 1\", \"issue 2\"]
+            }
+            
+            Be strict but fair. Only APPROVE if code is production-ready." \
+            --output-format json | jq -r '.result')
+          
+          echo "VERDICT=$(echo $REVIEW | jq -r '.verdict')" >> $GITHUB_OUTPUT
+          echo "SUMMARY=$(echo $REVIEW | jq -r '.summary')" >> $GITHUB_OUTPUT
+          echo "REVIEW<<EOF" >> $GITHUB_OUTPUT
+          echo "$REVIEW" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const review = ${{ steps.review.outputs.REVIEW }};
+            const verdict = review.verdict;
+            const emoji = verdict === 'APPROVE' ? '✅' : '⚠️';
+            
+            let body = `## ${emoji} AI Code Review\n\n`;
+            body += `**Verdict:** ${verdict}\n\n`;
+            body += `**Summary:** ${review.summary}\n\n`;
+            
+            if (review.issues && review.issues.length > 0) {
+              body += `### Issues Found\n`;
+              review.issues.forEach(issue => {
+                body += `- ${issue}\n`;
+              });
+            }
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+
+      - name: Fail if changes requested
+        if: steps.review.outputs.VERDICT == 'REQUEST_CHANGES'
+        run: exit 1
+          
   notify-pr:
     needs: test
     runs-on: ubuntu-latest
