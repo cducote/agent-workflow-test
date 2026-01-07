@@ -140,9 +140,9 @@ jobs:
         run: exit 1
           
   notify-pr:
-    needs: ai-review
+    needs: [test, ai-review]
     runs-on: ubuntu-latest
-    if: success() && github.event_name == 'pull_request'
+    if: always() && needs.test.result == 'success' && (needs.ai-review.result == 'success' || needs.ai-review.result == 'skipped') && github.event_name == 'pull_request'
     steps:
       - name: Discord Notification - PR Ready
         run: |
