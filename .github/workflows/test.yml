@@ -36,7 +36,7 @@ jobs:
           curl -H "Content-Type: application/json" \
             -d '{
               "embeds": [{
-                "title": "🤖 PR Ready for Review",
+                "title": "🤖 PR Ready for Review, dawg!",
                 "description": "${{ github.event.pull_request.title }}",
                 "url": "${{ github.event.pull_request.html_url }}",
                 "color": 5763719,
