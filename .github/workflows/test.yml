@@ -68,11 +68,8 @@ jobs:
       - name: Claude Review
         id: review
         run: |
-          # Read diff into variable to avoid piping user content through shell
-          DIFF_CONTENT=$(cat diff.txt)
-
-          # Use heredoc to pass diff content safely, avoiding shell interpretation
-          REVIEW_RAW=$(claude -p "$(cat <<'PROMPT_EOF'
+          # Build prompt file with diff content appended safely (no shell interpolation)
+          cat > prompt.txt <<'PROMPT_EOF'
           Review this code diff. Check for:
           - Bugs or logic errors
           - Security vulnerabilities
@@ -90,14 +87,26 @@ jobs:
 
           --- DIFF START ---
           PROMPT_EOF
-          )
-          $DIFF_CONTENT
-          --- DIFF END ---")
+
+          # Append diff content safely via cat (no shell interpretation of diff content)
+          cat diff.txt >> prompt.txt
+          echo "" >> prompt.txt
+          echo "--- DIFF END ---" >> prompt.txt
+
+          # Pass prompt via file to avoid any shell interpretation
+          REVIEW_RAW=$(claude -p "$(cat prompt.txt)")
 
           # Strip markdown code fences if present (handle both ```json and ``` variants)
+          # First try to extract content between code fences
           REVIEW=$(echo "$REVIEW_RAW" | sed -n '/^```/,/^```$/p' | sed '1d;$d')
 
-          # If no code fences found, use raw output
+          # If no code fences found, try to extract JSON object directly
+          if [ -z "$REVIEW" ]; then
+            # Try to extract JSON from response (handles text before/after JSON)
+            REVIEW=$(echo "$REVIEW_RAW" | grep -o '{[^{}]*"verdict"[^{}]*}' | head -1)
+          fi
+
+          # If still empty, use raw output as fallback
           if [ -z "$REVIEW" ]; then
             REVIEW="$REVIEW_RAW"
           fi
@@ -105,7 +114,11 @@ jobs:
           # Validate JSON before proceeding
           if ! echo "$REVIEW" | jq empty 2>/dev/null; then
             echo "::error::Claude returned invalid JSON response"
-            echo "Raw response: $REVIEW_RAW"
+            echo "Raw response was:"
+            echo "$REVIEW_RAW"
+            echo "---"
+            echo "Attempted to parse:"
+            echo "$REVIEW"
             exit 1
           fi
 

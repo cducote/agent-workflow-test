@@ -5,7 +5,7 @@
  * @returns {number} The sum of a and b, or 0 if either is null/undefined
  */
 function add(a, b) {
-  if (a === null || a === undefined || b === null || b === undefined) {
+  if (a == null || b == null) {
     return 0;
   }
   return a + b;
@@ -18,7 +18,7 @@ function add(a, b) {
  * @returns {number} The product of a and b, or 0 if either is null/undefined
  */
 function multiply(a, b) {
-  if (a === null || a === undefined || b === null || b === undefined) {
+  if (a == null || b == null) {
     return 0;
   }
   return a * b;
@@ -31,7 +31,7 @@ function multiply(a, b) {
  * @returns {number} The quotient of a divided by b, or 0 if either is null/undefined
  */
 function divide(a, b) {
-  if (a === null || a === undefined || b === null || b === undefined) {
+  if (a == null || b == null) {
     return 0;
   }
   return a / b;
@@ -44,7 +44,7 @@ function divide(a, b) {
  * @returns {number} The difference of a minus b, or 0 if either is null/undefined
  */
 function subtract(a, b) {
-  if (a === null || a === undefined || b === null || b === undefined) {
+  if (a == null || b == null) {
     return 0;
   }
   return a - b;
