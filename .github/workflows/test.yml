@@ -115,19 +115,24 @@ jobs:
             });
 
       - name: Trigger Fix via Webhook
-        if: steps.review.outputs.VERDICT == 'REQUEST_CHANGES' && secrets.WEBHOOK_URL != ''
+        if: steps.review.outputs.VERDICT == 'REQUEST_CHANGES'
+        continue-on-error: true
         env:
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
           BRANCH: ${{ github.head_ref }}
           ISSUES: ${{ steps.review.outputs.ISSUES }}
         run: |
-          curl -X POST "$WEBHOOK_URL" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"command\": \"fix_pr\",
-              \"branch\": \"$BRANCH\",
-              \"issues\": $ISSUES
-            }"
+          if [ -n "$WEBHOOK_URL" ]; then
+            curl -X POST "$WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"command\": \"fix_pr\",
+                \"branch\": \"$BRANCH\",
+                \"issues\": $ISSUES
+              }"
+          else
+            echo "WEBHOOK_URL not configured, skipping webhook trigger"
+          fi
 
       - name: Fail if changes requested
         if: steps.review.outputs.VERDICT == 'REQUEST_CHANGES'
