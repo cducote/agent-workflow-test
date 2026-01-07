@@ -76,6 +76,11 @@ jobs:
 
           echo "VERDICT=$(echo $REVIEW | jq -r '.verdict')" >> $GITHUB_OUTPUT
           echo "SUMMARY=$(echo $REVIEW | jq -r '.summary')" >> $GITHUB_OUTPUT
+          
+          # Escape issues array for use in webhook
+          ISSUES=$(echo $REVIEW | jq -c '.issues')
+          echo "ISSUES=$ISSUES" >> $GITHUB_OUTPUT
+          
           echo "REVIEW<<EOF" >> $GITHUB_OUTPUT
           echo "$REVIEW" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -109,12 +114,23 @@ jobs:
               body: body
             });
 
+      - name: Trigger Fix via Webhook
+        if: steps.review.outputs.VERDICT == 'REQUEST_CHANGES'
+        run: |
+          curl -X POST ${{ secrets.WEBHOOK_URL }} \
+            -H "Content-Type: application/json" \
+            -d '{
+              "command": "fix_pr",
+              "branch": "${{ github.head_ref }}",
+              "issues": ${{ steps.review.outputs.ISSUES }}
+            }'
+
       - name: Fail if changes requested
         if: steps.review.outputs.VERDICT == 'REQUEST_CHANGES'
         run: exit 1
           
   notify-pr:
-    needs: test
+    needs: ai-review
     runs-on: ubuntu-latest
     if: success() && github.event_name == 'pull_request'
     steps:
@@ -129,7 +145,8 @@ jobs:
                 "color": 5763719,
                 "fields": [
                   {"name": "Branch", "value": "`${{ github.head_ref }}`", "inline": true},
-                  {"name": "Tests", "value": "✅ Passed", "inline": true}
+                  {"name": "Tests", "value": "✅ Passed", "inline": true},
+                  {"name": "AI Review", "value": "✅ Approved", "inline": true}
                 ]
               }]
             }' \
