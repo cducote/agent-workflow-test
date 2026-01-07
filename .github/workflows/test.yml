@@ -115,7 +115,7 @@ jobs:
             });
 
       - name: Trigger Fix via Webhook
-        if: steps.review.outputs.VERDICT == 'REQUEST_CHANGES'
+        if: steps.review.outputs.VERDICT == 'REQUEST_CHANGES' && secrets.WEBHOOK_URL != ''
         env:
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
           BRANCH: ${{ github.head_ref }}
