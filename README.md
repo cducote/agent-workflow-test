@@ -1,6 +1,6 @@
 # Agent Workflow Test
 
-MVP repository for testing AI agent coding workflowsssz
+MVP repository for testing AI agent coding workflowssszz
 
 ## Purpose
 
