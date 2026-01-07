@@ -1,4 +1,4 @@
-const { add, multiply } = require('../src/math');
+const { add, multiply, divide } = require('../src/math');
 
 describe('Math functions', () => {
   describe('add', () => {
@@ -30,6 +30,28 @@ describe('Math functions', () => {
 
     it('should return 0 when second parameter is undefined', () => {
       expect(multiply(3, undefined)).toBe(0);
+    });
+  });
+
+  describe('divide', () => {
+    it('should divide 12 by 2 to get 6', () => {
+      expect(divide(12, 2)).toBe(6);
+    });
+
+    it('should handle negative numbers', () => {
+      expect(divide(-12, 3)).toBe(-4);
+    });
+
+    it('should handle zero as dividend', () => {
+      expect(divide(0, 5)).toBe(0);
+    });
+
+    it('should return 0 when first parameter is null', () => {
+      expect(divide(null, 5)).toBe(0);
+    });
+
+    it('should return 0 when second parameter is undefined', () => {
+      expect(divide(3, undefined)).toBe(0);
     });
   });
 });

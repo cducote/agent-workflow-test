@@ -25,3 +25,25 @@ jobs:
 
       - name: Run tests
         run: npm test
+  
+  notify:
+    needs: test
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Discord Notification
+        run: |
+          curl -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "🤖 PR Ready for Review",
+                "description": "${{ github.event.pull_request.title }}",
+                "url": "${{ github.event.pull_request.html_url }}",
+                "color": 5763719,
+                "fields": [
+                  {"name": "Branch", "value": "`${{ github.head_ref }}`", "inline": true},
+                  {"name": "Tests", "value": "✅ Passed", "inline": true}
+                ]
+              }]
+            }' \
+            ${{ secrets.DISCORD_WEBHOOK_URL }}
