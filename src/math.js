@@ -50,4 +50,28 @@ function subtract(a, b) {
   return a - b;
 }
 
-module.exports = { add, multiply, divide, subtract };
+/**
+ * Squares a number (raises it to the power of 2).
+ * @param {number} x - The number to square
+ * @returns {number|null} The square of x, or null if x is null/undefined
+ */
+function square(x) {
+  if (x == null) {
+    return null;
+  }
+  return x * x;
+}
+
+/**
+ * Cubes a number (raises it to the power of 3).
+ * @param {number} x - The number to cube
+ * @returns {number|null} The cube of x, or null if x is null/undefined
+ */
+function cube(x) {
+  if (x == null) {
+    return null;
+  }
+  return x * x * x;
+}
+
+module.exports = { add, multiply, divide, subtract, square, cube };
