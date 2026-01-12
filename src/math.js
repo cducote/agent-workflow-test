@@ -37,4 +37,17 @@ function divide(a, b) {
   return a / b;
 }
 
-module.exports = { add, multiply, divide };
+/**
+ * Subtracts the second number from the first number.
+ * @param {number} a - First number (minuend)
+ * @param {number} b - Second number (subtrahend)
+ * @returns {number} The difference of a minus b, or 0 if either is null/undefined
+ */
+function subtract(a, b) {
+  if (a == null || b == null) {
+    return 0;
+  }
+  return a - b;
+}
+
+module.exports = { add, multiply, divide, subtract };
