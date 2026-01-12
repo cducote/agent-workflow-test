@@ -4,7 +4,12 @@
   "description": "MVP test repo for AI agent coding workflow",
   "main": "src/math.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "frontend:dev": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build",
+    "frontend:start": "cd frontend && npm start",
+    "frontend:test": "cd frontend && npm test",
+    "frontend:install": "cd frontend && npm install"
   },
   "devDependencies": {
     "jest": "^29.7.0"
