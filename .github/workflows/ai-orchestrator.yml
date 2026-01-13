@@ -1,0 +1,83 @@
+name: AI Orchestrator
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Run mode"
+        required: true
+        default: "plan"
+        type: choice
+        options: [plan, implement, fix]
+      pr_number:
+        description: "PR number (optional; if set, will comment on PR)"
+        required: false
+        type: string
+      feature:
+        description: "Feature request text (optional; overrides PR/issue text)"
+        required: false
+        type: string
+
+  issue_comment:
+    types: [created]
+
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  orchestrate:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/ai ')) ||
+      (github.event_name == 'pull_request' && (github.event.label.name == 'ai-plan' || github.event.label.name == 'ai-implement' || github.event.label.name == 'ai-fix'))
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install orchestrator dependencies
+        working-directory: tools/ai-orchestrator
+        run: npm ci
+
+      - name: Build orchestrator
+        working-directory: tools/ai-orchestrator
+        run: npm run build
+
+      - name: Run orchestrator
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          INPUT_MODE: ${{ github.event.inputs.mode }}
+          INPUT_PR_NUMBER: ${{ github.event.inputs.pr_number }}
+          INPUT_FEATURE: ${{ github.event.inputs.feature }}
+        working-directory: tools/ai-orchestrator
+        run: npm run start
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-orchestrator-artifacts
+          path: tools/ai-orchestrator/out/**
+          if-no-files-found: error
