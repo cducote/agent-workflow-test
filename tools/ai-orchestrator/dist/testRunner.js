@@ -1,7 +1,25 @@
 import { execSync } from "node:child_process";
+const ALLOWED_TEST_COMMANDS = [
+    'npm test',
+    'npm run test',
+    'npm run test:ci',
+    'jest',
+    'vitest',
+];
 export function runTests(commands) {
     const results = [];
     for (const command of commands) {
+        // Validate command against allowlist
+        const isAllowed = ALLOWED_TEST_COMMANDS.some(allowed => command.startsWith(allowed));
+        if (!isAllowed) {
+            console.warn(`Skipping potentially unsafe command: ${command}`);
+            results.push({
+                success: false,
+                output: `Command not in allowlist: ${command}. Allowed commands: ${ALLOWED_TEST_COMMANDS.join(', ')}`,
+                command,
+            });
+            continue;
+        }
         try {
             const output = execSync(command, {
                 encoding: "utf8",
