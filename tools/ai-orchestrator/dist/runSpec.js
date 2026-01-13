@@ -67,7 +67,7 @@ export async function buildRunSpec() {
         (eventName === "issue_comment" ? (event?.comment?.body || "") : "") ||
         "";
     // If we have a PR number and no explicit feature text, pull title/body as baseline.
-    if (prNumber && !featureOverride()) {
+    if (prNumber && !featureOverride() && !featureText.trim()) {
         const pr = await getPullRequestBody({ repoFull: repository, prNumber });
         const parts = [
             `PR Title: ${pr.title}`,
