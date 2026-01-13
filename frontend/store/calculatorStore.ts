@@ -174,6 +174,7 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => ({
       currentValue: 0,
       previousValue: null,
       operation: null,
+      history: [],
       error: null,
       shouldResetDisplay: false,
     });
