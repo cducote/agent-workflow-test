@@ -22,3 +22,4 @@ npm test
 Main branch should have these protections enabled:
 - Require PR before merging
 - Require status checks to pass (Tests workflow)
+- Made by Chrissy and Claude
