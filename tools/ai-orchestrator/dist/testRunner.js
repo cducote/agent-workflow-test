@@ -1,0 +1,51 @@
+import { execSync } from "node:child_process";
+export function runTests(commands) {
+    const results = [];
+    for (const command of commands) {
+        try {
+            const output = execSync(command, {
+                encoding: "utf8",
+                stdio: "pipe",
+                maxBuffer: 1024 * 1024 * 10, // 10MB
+            });
+            results.push({
+                success: true,
+                output: truncateOutput(output),
+                command,
+            });
+        }
+        catch (err) {
+            results.push({
+                success: false,
+                output: truncateOutput(err.stdout || err.stderr || err.message || "Test failed"),
+                command,
+            });
+        }
+    }
+    return results;
+}
+function truncateOutput(output, maxLines = 100) {
+    const lines = output.split("\n");
+    if (lines.length <= maxLines) {
+        return output;
+    }
+    const half = Math.floor(maxLines / 2);
+    const truncated = [
+        ...lines.slice(0, half),
+        `\n... [${lines.length - maxLines} lines truncated] ...\n`,
+        ...lines.slice(-half),
+    ];
+    return truncated.join("\n");
+}
+export function formatTestResults(results) {
+    const sections = results.map((r) => {
+        const status = r.success ? "✓ PASS" : "✗ FAIL";
+        return [
+            `${status}: ${r.command}`,
+            "```",
+            r.output,
+            "```",
+        ].join("\n");
+    });
+    return sections.join("\n\n");
+}
