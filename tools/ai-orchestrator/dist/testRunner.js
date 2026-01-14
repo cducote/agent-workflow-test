@@ -1,4 +1,5 @@
 import { execSync } from "node:child_process";
+import { findRepoRoot } from "./scope.js";
 const ALLOWED_TEST_COMMANDS = [
     'npm test',
     'npm run test',
@@ -24,10 +25,13 @@ export function runTests(commands) {
             continue;
         }
         try {
+            const repoRoot = findRepoRoot();
             const output = execSync(command, {
                 encoding: "utf8",
                 stdio: "pipe",
                 maxBuffer: 1024 * 1024 * 10, // 10MB
+                cwd: repoRoot,
+                shell: "/bin/sh",
             });
             results.push({
                 success: true,
