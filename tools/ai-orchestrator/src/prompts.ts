@@ -26,7 +26,7 @@ export function plannerUserPrompt(featureText: string, repoStructure?: string): 
   "steps": ["string"],
   "files_to_modify": [{"path":"string","reason":"string"}],
   "files_to_create": [{"path":"string","purpose":"string"}],
-  "tests": [{"command":"string","reason":"string"}],
+  "tests": [{"command":"COPY EXACTLY from 'Test commands' section above","reason":"string"}],
   "risks": ["string"]
 }`;
 
@@ -37,7 +37,9 @@ export function plannerUserPrompt(featureText: string, repoStructure?: string): 
       "",
       "=== REPOSITORY STRUCTURE (USE THESE EXACT PATHS) ===",
       repoStructure,
-      "=== END REPOSITORY STRUCTURE ==="
+      "=== END REPOSITORY STRUCTURE ===",
+      "",
+      "REMINDER: For the 'tests' field, copy commands EXACTLY as shown in 'Test commands' above. Do NOT modify them."
     );
   }
 

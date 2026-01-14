@@ -23,12 +23,12 @@ export function plannerUserPrompt(featureText, repoStructure) {
   "steps": ["string"],
   "files_to_modify": [{"path":"string","reason":"string"}],
   "files_to_create": [{"path":"string","purpose":"string"}],
-  "tests": [{"command":"string","reason":"string"}],
+  "tests": [{"command":"COPY EXACTLY from 'Test commands' section above","reason":"string"}],
   "risks": ["string"]
 }`;
     const parts = ["Feature request:", featureText.trim()];
     if (repoStructure) {
-        parts.push("", "=== REPOSITORY STRUCTURE (USE THESE EXACT PATHS) ===", repoStructure, "=== END REPOSITORY STRUCTURE ===");
+        parts.push("", "=== REPOSITORY STRUCTURE (USE THESE EXACT PATHS) ===", repoStructure, "=== END REPOSITORY STRUCTURE ===", "", "REMINDER: For the 'tests' field, copy commands EXACTLY as shown in 'Test commands' above. Do NOT modify them.");
     }
     parts.push("", "Return a plan as JSON with this schema:", schema);
     return parts.join("\n");
