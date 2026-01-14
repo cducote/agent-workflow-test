@@ -37,3 +37,19 @@ export async function getCommentById(params) {
     });
     return comment.data.body || "";
 }
+export async function getRecentComments(params) {
+    const octokit = getOctokit();
+    const { owner, repo } = parseRepo(params.repoFull);
+    const comments = await octokit.issues.listComments({
+        owner,
+        repo,
+        issue_number: params.prNumber,
+        per_page: 100,
+    });
+    return comments.data.map((c) => ({
+        id: c.id,
+        body: c.body || "",
+        user: c.user?.login || "",
+        created_at: c.created_at,
+    }));
+}
