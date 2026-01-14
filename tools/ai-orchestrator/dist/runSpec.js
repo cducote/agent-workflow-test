@@ -128,6 +128,8 @@ export async function buildRunSpec() {
             featureOverride() ||
                 (eventName === "issue_comment" ? (event?.comment?.body || "") : "") ||
                 "";
+        // Strip the /ai command from feature text
+        featureText = featureText.replace(/^\/ai\s+\w+\s*/i, "").trim();
         // For /ai implement without context, try to find and reuse the most recent AI Plan
         if (mode === "implement" && prNumber && !featureText.trim()) {
             console.log("Searching for most recent AI Plan to reuse...");
