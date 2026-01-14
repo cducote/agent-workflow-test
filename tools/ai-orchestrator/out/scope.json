@@ -1,7 +1,15 @@
 {
   "included_files": [
     {
+      "path": "/home/runner/work/agent-workflow-test/agent-workflow-test/src/math.js",
+      "max_bytes": 80000
+    },
+    {
       "path": "/home/runner/work/agent-workflow-test/agent-workflow-test/frontend/lib/math.ts",
+      "max_bytes": 80000
+    },
+    {
+      "path": "/home/runner/work/agent-workflow-test/agent-workflow-test/frontend/components/OperationButtons.tsx",
       "max_bytes": 80000
     },
     {
@@ -9,7 +17,7 @@
       "max_bytes": 80000
     },
     {
-      "path": "/home/runner/work/agent-workflow-test/agent-workflow-test/frontend/components/OperationButtons.tsx",
+      "path": "/home/runner/work/agent-workflow-test/agent-workflow-test/tests/math.test.js",
       "max_bytes": 80000
     },
     {
@@ -27,5 +35,5 @@
     "yarn.lock",
     "pnpm-lock.yaml"
   ],
-  "notes": "Including only the 4 files that need to be modified according to the plan: math library for the modulo function implementation, calculator store for operation handling, OperationButtons component for UI changes, and the math test file for comprehensive testing. All other files are excluded to keep context minimal while ensuring all necessary dependencies for the modulo operation implementation are available."
+  "notes": "Including only the files that need modification according to the plan: backend and frontend math libraries, operation buttons component, calculator store, and their corresponding test files. All other files are excluded to keep context minimal while ensuring all necessary dependencies for implementing the modulo operation are available."
 }

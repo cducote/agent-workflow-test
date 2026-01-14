@@ -1,4 +1,4 @@
-const { add, multiply, divide, subtract, square, cube } = require('../src/math');
+const { add, multiply, divide, subtract, modulo, square, cube } = require('../src/math');
 
 describe('Math functions', () => {
   describe('add', () => {
@@ -90,6 +90,48 @@ describe('Math functions', () => {
 
     it('should return 0 when second parameter is undefined', () => {
       expect(subtract(10, undefined)).toBe(0);
+    });
+  });
+
+  describe('modulo', () => {
+    it('should calculate modulo of two positive numbers', () => {
+      expect(modulo(10, 3)).toBe(1);
+    });
+
+    it('should calculate modulo with zero result', () => {
+      expect(modulo(6, 3)).toBe(0);
+    });
+
+    it('should handle negative dividend', () => {
+      expect(modulo(-7, 3)).toBe(-1);
+    });
+
+    it('should handle negative divisor', () => {
+      expect(modulo(7, -3)).toBe(1);
+    });
+
+    it('should handle both negative numbers', () => {
+      expect(modulo(-7, -3)).toBe(-1);
+    });
+
+    it('should handle floating point numbers', () => {
+      expect(modulo(5.5, 2)).toBeCloseTo(1.5);
+    });
+
+    it('should throw error on modulo by zero', () => {
+      expect(() => modulo(5, 0)).toThrow('Modulo by zero');
+    });
+
+    it('should return 0 when first parameter is null', () => {
+      expect(modulo(null, 5)).toBe(0);
+    });
+
+    it('should return 0 when second parameter is undefined', () => {
+      expect(modulo(3, undefined)).toBe(0);
+    });
+
+    it('should handle edge case where dividend is smaller than divisor', () => {
+      expect(modulo(2, 5)).toBe(2);
     });
   });
 
