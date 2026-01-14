@@ -192,8 +192,8 @@ export async function buildRunSpec(): Promise<RunSpec> {
     },
     constraints: {
       maxPlanTokens: 4000,
-      maxImplementTokens: 8000,
-      maxFixTokens: 4000,
+      maxImplementTokens: 32000,  // Full-file JSON needs more tokens
+      maxFixTokens: 16000,
       maxFiles: 20,
       maxFileBytes: 80000,
       maxIterations: 2,
