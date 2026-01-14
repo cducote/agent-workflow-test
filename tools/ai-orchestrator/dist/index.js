@@ -4,7 +4,7 @@ import { buildRunSpec } from "./runSpec.js";
 import { callAI } from "./aiProvider.js";
 import { plannerSystemPrompt, plannerUserPrompt, implementerSystemPrompt, implementerUserPrompt, fixerSystemPrompt, fixerUserPrompt, } from "./prompts.js";
 import { commentOnPullRequest } from "./github.js";
-import { resolveScope, readFileContents } from "./scope.js";
+import { resolveScope, readFileContents, discoverTestLocations, findRepoRoot } from "./scope.js";
 import { parseImplementationResponse, applyFileChanges, summarizeChanges } from "./patch.js";
 import { runTests, formatTestResults } from "./testRunner.js";
 function ensureOutDir() {
@@ -192,9 +192,9 @@ async function runImplementMode(outDir) {
     }
     const changeSummary = summarizeChanges(implResult);
     fs.writeFileSync(path.join(outDir, "change-summary.txt"), changeSummary);
-    // Step 6: Run tests
+    // Step 6: Run tests (use discovered commands, not AI-generated ones)
     console.log("  Step 6: Running tests...");
-    const testCommands = plan.tests?.map((t) => t.command) || ["npm test"];
+    const testCommands = discoverTestLocations(findRepoRoot());
     const testResults = runTests(testCommands);
     fs.writeFileSync(path.join(outDir, "test-results.json"), JSON.stringify(testResults, null, 2));
     const allPassed = testResults.every((r) => r.success);
@@ -274,9 +274,9 @@ async function runFixMode(outDir) {
         fs.writeFileSync(path.join(outDir, "fix-error.txt"), "Missing artifacts from previous implement run.");
         return;
     }
-    // Run tests to get current failures
+    // Run tests to get current failures (use discovered commands, not AI-generated)
     console.log("  Step 1: Running tests to identify failures...");
-    const testCommands = plan.tests?.map((t) => t.command) || ["npm test"];
+    const testCommands = discoverTestLocations(findRepoRoot());
     let testResults = runTests(testCommands);
     let failedTests = testResults.filter((r) => !r.success);
     if (failedTests.length === 0) {
