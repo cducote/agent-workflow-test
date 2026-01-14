@@ -60,32 +60,81 @@ export function extractDiffFromResponse(response: string): string {
 
   let diff = "";
   if (match) {
-    diff = match[1].trim();
+    diff = match[1];
   } else {
     // Otherwise, look for diff --git pattern
     const diffStart = response.indexOf("diff --git");
     if (diffStart !== -1) {
-      diff = response.slice(diffStart).trim();
+      diff = response.slice(diffStart);
     } else {
       // If nothing found, return as-is and let apply fail with a clear error
-      diff = response.trim();
+      diff = response;
     }
   }
 
-  // Clean up malformed index lines for new files
-  // Git expects "index 0000000..0000000" for new files, but Claude sometimes generates
-  // "index 0000000..e69de29" or other incorrect hashes
-  diff = diff.replace(/^index 0000000\.\.[a-f0-9]+$/gm, "index 0000000..0000000");
-
-  // Validate that the patch isn't truncated
-  // A valid patch should not end with an incomplete line (only spaces/tabs followed by newline)
-  const lines = diff.split("\n");
-  const lastLine = lines[lines.length - 1] || "";
-  const secondLastLine = lines[lines.length - 2] || "";
-
-  if (secondLastLine.match(/^[+ ]\s+$/) || lastLine.match(/^[+ ]\s*$/)) {
-    throw new Error("Patch appears to be truncated (ends with incomplete line). Try reducing scope or increasing maxImplementTokens.");
-  }
+  // Sanitize the diff
+  diff = sanitizeDiff(diff);
 
   return diff;
+}
+
+/** Clean up common AI-generated diff issues */
+function sanitizeDiff(diff: string): string {
+  let lines = diff.split("\n");
+  const result: string[] = [];
+  
+  let inHunk = false;
+  
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    
+    // Skip empty lines before first diff --git
+    if (result.length === 0 && !line.startsWith("diff --git")) {
+      if (line.trim() === "") continue;
+      // Skip any preamble text before the diff
+      if (!line.startsWith("diff ") && !line.startsWith("---") && !line.startsWith("+++")) {
+        continue;
+      }
+    }
+    
+    // Stop at any trailing text after the diff (explanations, etc.)
+    if (result.length > 0 && !line.startsWith("diff ") && !line.startsWith("---") && 
+        !line.startsWith("+++") && !line.startsWith("@@") && !line.startsWith("+") && 
+        !line.startsWith("-") && !line.startsWith(" ") && !line.startsWith("index ") &&
+        !line.startsWith("new file") && !line.startsWith("deleted file") && 
+        line.trim() !== "" && !line.startsWith("\\")) {
+      // Check if this looks like start of new explanation text
+      if (line.match(/^[A-Z]/) || line.match(/^#/) || line.match(/^Note/i)) {
+        break;
+      }
+    }
+    
+    // Fix: Remove trailing whitespace from context/add/remove lines (causes issues)
+    if (line.match(/^[ +-]/)) {
+      line = line.replace(/\s+$/, "");
+    }
+    
+    // Track hunk state
+    if (line.startsWith("@@")) {
+      inHunk = true;
+    } else if (line.startsWith("diff --git")) {
+      inHunk = false;
+    }
+    
+    result.push(line);
+  }
+  
+  // Ensure diff ends with newline
+  let finalDiff = result.join("\n");
+  if (!finalDiff.endsWith("\n")) {
+    finalDiff += "\n";
+  }
+  
+  // Clean up malformed index lines for new files
+  finalDiff = finalDiff.replace(/^index 0000000\.\.[a-f0-9]+$/gm, "index 0000000..0000000");
+  
+  // Remove any Windows line endings
+  finalDiff = finalDiff.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  
+  return finalDiff;
 }
