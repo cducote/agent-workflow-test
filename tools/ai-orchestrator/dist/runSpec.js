@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { getPullRequestBody, getCommentById } from "./github.js";
+import { getPullRequestBody, getCommentById, getRecentComments } from "./github.js";
 import { parsePlanFromComment } from "./planParser.js";
 function readEvent() {
     const p = process.env.GITHUB_EVENT_PATH;
@@ -82,6 +82,28 @@ async function parsePlanFromReaction(eventName, event, repository) {
         return null;
     }
 }
+async function findMostRecentAIPlan(repository, prNumber) {
+    try {
+        const comments = await getRecentComments({ repoFull: repository, prNumber });
+        // Find the most recent comment from github-actions bot that contains an AI Plan
+        const aiPlanComment = comments
+            .reverse() // Most recent first
+            .find((c) => c.user === "github-actions[bot]" && c.body.includes("## 🤖 AI Plan"));
+        if (!aiPlanComment)
+            return null;
+        const plan = parsePlanFromComment(aiPlanComment.body);
+        if (!plan)
+            return null;
+        return {
+            featureText: `Implementing plan from AI Plan comment:\n\n${plan.summary}`,
+            preParsedPlan: plan,
+        };
+    }
+    catch (err) {
+        console.warn("Failed to find recent AI Plan:", err);
+        return null;
+    }
+}
 export async function buildRunSpec() {
     const eventName = process.env.GITHUB_EVENT_NAME || "unknown";
     const repository = process.env.GITHUB_REPOSITORY || "";
@@ -106,7 +128,17 @@ export async function buildRunSpec() {
             featureOverride() ||
                 (eventName === "issue_comment" ? (event?.comment?.body || "") : "") ||
                 "";
-        // If we have a PR number and no explicit feature text, pull title/body as baseline.
+        // For /ai implement without context, try to find and reuse the most recent AI Plan
+        if (mode === "implement" && prNumber && !featureText.trim()) {
+            console.log("Searching for most recent AI Plan to reuse...");
+            const existingPlan = await findMostRecentAIPlan(repository, prNumber);
+            if (existingPlan) {
+                console.log("Found existing AI Plan, reusing it.");
+                featureText = existingPlan.featureText;
+                preParsedPlan = existingPlan.preParsedPlan;
+            }
+        }
+        // If still no feature text and we have a PR number, pull title/body as baseline.
         if (prNumber && !featureOverride() && !featureText.trim()) {
             const pr = await getPullRequestBody({ repoFull: repository, prNumber });
             const parts = [
