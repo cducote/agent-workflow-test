@@ -5,11 +5,13 @@ import { findRepoRoot } from "./scope.js";
 export function applyPatch(patchContent) {
     try {
         const repoRoot = findRepoRoot();
+        // Strip fake index lines that AI generates (abc1234..def5678 etc)
+        const cleanedPatch = patchContent.replace(/^index [a-f0-9]+\.\.[a-f0-9]+.*$/gm, "");
         // Write patch to a temporary file in repo root
         const patchPath = path.join(repoRoot, "temp.patch");
-        fs.writeFileSync(patchPath, patchContent);
-        // Apply using git apply from repo root
-        execSync(`git apply --whitespace=nowarn "${patchPath}"`, {
+        fs.writeFileSync(patchPath, cleanedPatch);
+        // Apply using git apply from repo root with lenient options
+        execSync(`git apply --whitespace=nowarn --ignore-whitespace "${patchPath}"`, {
             stdio: "pipe",
             encoding: "utf8",
             cwd: repoRoot,

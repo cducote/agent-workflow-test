@@ -1,0 +1,2 @@
+Failed to apply patch: Command failed: git apply --whitespace=nowarn "/home/runner/work/agent-workflow-test/agent-workflow-test/temp.patch"
+error: corrupt patch at line 48

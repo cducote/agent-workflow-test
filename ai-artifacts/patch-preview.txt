@@ -1,0 +1,30 @@
+diff --git a/src/math.js b/src/math.js
+index abc1234..def5678 100644
+--- a/src/math.js
++++ b/src/math.js
+@@ -63,4 +63,16 @@ function cube(x) {
+   return x * x * x;
+ }
+ 
+-module.exports = { add, multiply, divide, subtract, square, cube };
++/**
++ * Calculates the modulo (remainder) of dividing the first number by the second number.
++ * @param {number} a - Dividend
++ * @param {number} b - Divisor
++ * @returns {number} The remainder of a divided by b, or 0 if either is null/undefined
++ * @throws {Error} If divisor is zero
++ */
++function modulo(a, b) {
++  if (a == null || b == null) {
++    return 0;
++  }
++  if (b === 0) {
++    throw new Error("Division by zero");
++  }
++  return a % b;
++}
++
++module.exports = { add, multiply, divide, subtract, square, cube, modulo };
+
+diff --git a/frontend/lib/math.ts b/frontend/lib/math.ts
+index abc1234..def5678 100644
