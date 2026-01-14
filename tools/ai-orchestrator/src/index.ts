@@ -199,10 +199,43 @@ async function runImplementMode(outDir: string) {
   const testOutput = formatTestResults(testResults);
   fs.writeFileSync(path.join(outDir, "test-output.txt"), testOutput);
 
-  // Step 7: Report
-  console.log("  Step 7: Reporting results...");
+  // Step 7: Commit and push if tests passed
+  if (allPassed) {
+    console.log("  Step 7: Committing and pushing changes...");
+    try {
+      const { execSync } = await import("node:child_process");
+
+      // Configure git
+      execSync('git config user.name "github-actions[bot]"', { stdio: "inherit" });
+      execSync('git config user.email "github-actions[bot]@users.noreply.github.com"', { stdio: "inherit" });
+
+      // Add all changes
+      execSync("git add -A", { stdio: "inherit" });
+
+      // Check if there are changes to commit
+      try {
+        execSync("git diff --cached --quiet");
+        console.log("  No changes to commit.");
+      } catch {
+        // There are changes, commit them
+        const commitMessage = `AI Implementation: ${plan.summary}\n\n🤖 Generated with AI Orchestrator\n\nCo-Authored-By: github-actions[bot] <github-actions[bot]@users.noreply.github.com>`;
+        execSync(`git commit -m "${commitMessage.replace(/"/g, '\\"')}"`, { stdio: "inherit" });
+
+        // Push to the PR branch
+        execSync("git push", { stdio: "inherit" });
+        console.log("  Changes committed and pushed successfully.");
+      }
+    } catch (err: any) {
+      console.error("  Failed to commit/push changes:", err.message);
+      fs.writeFileSync(path.join(outDir, "git-error.txt"), err.message);
+    }
+  }
+
+  // Step 8: Report
+  console.log("  Step 8: Reporting results...");
   if (runSpec.prNumber) {
     const status = allPassed ? "✓ Success" : "✗ Tests Failed";
+    const changesPushed = allPassed ? "\n\n**✓ Changes have been committed and pushed to this branch.**" : "";
     await commentOnPullRequest({
       repoFull: runSpec.repository,
       prNumber: runSpec.prNumber,
@@ -211,6 +244,7 @@ async function runImplementMode(outDir: string) {
         "",
         "### Summary",
         plan.summary,
+        changesPushed,
         "",
         "### Changes",
         "```",
