@@ -89,7 +89,7 @@ async function findMostRecentAIPlan(repository, prNumber) {
         // (not from Implement Mode, which also generates plans)
         const aiPlanComment = comments
             .reverse() // Most recent first
-            .find((c) => c.user === "github-actions[bot]" && c.body.includes("## 🤖 AI Plan (Plan Mode)"));
+            .find((c) => c.user === "github-actions[bot]" && (c.body.includes("## 🤖 AI Plan (Plan Mode)") || c.body.includes("## 🤖 AI Plan")));
         if (!aiPlanComment)
             return null;
         const plan = parsePlanFromComment(aiPlanComment.body);
