@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { callClaude } from "./anthropic.js";
+import { callAI } from "./aiProvider.js";
 import { scopeResolverSystemPrompt, scopeResolverUserPrompt } from "./prompts.js";
 const EXCLUDED_PATTERNS = [
     "node_modules/**",
@@ -15,29 +15,34 @@ const EXCLUDED_PATTERNS = [
 export async function resolveScope(plan, runSpec) {
     // Get a sample of repo structure
     const repoStructure = await getRepoStructure();
+    const repoRoot = findRepoRoot();
     const system = scopeResolverSystemPrompt();
     const user = scopeResolverUserPrompt(plan, repoStructure);
-    const raw = await callClaude({
+    const raw = await callAI({
         system,
         user,
         maxTokens: 1000,
     });
     const scope = safeJsonParse(raw);
-    // Enforce constraints
+    // Enforce constraints - resolve paths relative to repo root
     const filtered = scope.included_files.filter((f) => {
+        // Resolve path relative to repo root
+        const fullPath = path.isAbsolute(f.path) ? f.path : path.join(repoRoot, f.path);
         // Check file exists
         try {
-            const stat = fs.statSync(f.path);
+            const stat = fs.statSync(fullPath);
             if (!stat.isFile())
                 return false;
             if (stat.size > runSpec.constraints.maxFileBytes) {
                 console.warn(`Skipping ${f.path}: exceeds max file size`);
                 return false;
             }
+            // Update the path to be absolute for later use
+            f.path = fullPath;
             return true;
         }
         catch {
-            console.warn(`Skipping ${f.path}: file not found`);
+            console.warn(`Skipping ${f.path}: file not found at ${fullPath}`);
             return false;
         }
     });
@@ -64,14 +69,36 @@ export async function readFileContents(scope) {
     }
     return results;
 }
+export function findRepoRoot() {
+    // Find the repo root by looking for .git directory
+    let dir = process.cwd();
+    for (let i = 0; i < 10; i++) {
+        if (fs.existsSync(path.join(dir, ".git"))) {
+            return dir;
+        }
+        const parent = path.dirname(dir);
+        if (parent === dir)
+            break; // reached filesystem root
+        dir = parent;
+    }
+    // Fallback: if running from tools/ai-orchestrator, go up two levels
+    const twoUp = path.join(process.cwd(), "../..");
+    if (fs.existsSync(path.join(twoUp, ".git"))) {
+        return twoUp;
+    }
+    return process.cwd();
+}
 export async function getRepoStructure() {
-    // List top-level structure and recursively list src/ and tests/ directories
+    // Find the actual repo root, not the current working directory
+    const repoRoot = findRepoRoot();
+    // List top-level structure and recursively list important directories
     try {
-        const entries = fs.readdirSync(".", { withFileTypes: true });
+        const entries = fs.readdirSync(repoRoot, { withFileTypes: true });
         const dirs = entries.filter((e) => e.isDirectory() && !e.name.startsWith(".")).map((e) => e.name);
         const files = entries.filter((e) => e.isFile()).map((e) => e.name);
         const lines = [
             "Repository structure:",
+            `(root: ${repoRoot})`,
             "",
             "Root files:",
             ...files.map((f) => `  ${f}`),
@@ -79,13 +106,16 @@ export async function getRepoStructure() {
             "Directories:",
             ...dirs.map((d) => `  ${d}/`),
         ];
-        // Recursively list src/ and tests/ to show actual code structure
-        for (const dir of ["src", "tests", "lib"]) {
-            if (dirs.includes(dir)) {
+        // Recursively list important directories to show actual code structure
+        // Include frontend/ for Next.js/React projects
+        for (const dir of ["src", "tests", "lib", "frontend", "frontend/components", "frontend/lib", "frontend/store", "frontend/app"]) {
+            const fullPath = path.join(repoRoot, dir);
+            if (fs.existsSync(fullPath)) {
                 lines.push("", `Contents of ${dir}/:`);
                 try {
-                    const subFiles = walkDirectory(dir, 3); // Max depth 3
-                    lines.push(...subFiles.map((f) => `  ${f}`));
+                    const subFiles = walkDirectory(fullPath, 2); // Max depth 2
+                    // Make paths relative to repo root
+                    lines.push(...subFiles.map((f) => `  ${path.relative(repoRoot, f)}`));
                 }
                 catch (err) {
                     lines.push(`  (unable to read ${dir}/)`);

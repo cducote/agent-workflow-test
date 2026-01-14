@@ -1,15 +1,18 @@
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { findRepoRoot } from "./scope.js";
 export function applyPatch(patchContent) {
     try {
-        // Write patch to a temporary file
-        const patchPath = path.join(process.cwd(), "temp.patch");
+        const repoRoot = findRepoRoot();
+        // Write patch to a temporary file in repo root
+        const patchPath = path.join(repoRoot, "temp.patch");
         fs.writeFileSync(patchPath, patchContent);
-        // Apply using git apply
+        // Apply using git apply from repo root
         execSync(`git apply --whitespace=nowarn "${patchPath}"`, {
             stdio: "pipe",
             encoding: "utf8",
+            cwd: repoRoot,
         });
         // Clean up
         fs.unlinkSync(patchPath);

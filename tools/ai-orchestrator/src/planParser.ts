@@ -6,7 +6,9 @@ import type { PlanJson } from "./schemas.js";
 export function parsePlanFromComment(commentBody: string): PlanJson | null {
   try {
     // Extract sections from the markdown comment
-    const summary = extractSection(commentBody, "## 🤖 AI Plan", "### Steps");
+    // Strip the "(Plan Mode)" suffix from the header if present
+    let summary = extractSection(commentBody, "## 🤖 AI Plan", "### Steps");
+    summary = summary.replace(/^\s*\(Plan Mode\)\s*/i, "");
     const steps = extractListItems(commentBody, "### Steps", "### Files to modify");
     const filesToModify = extractFileList(commentBody, "### Files to modify", "### Files to create", "reason") as { path: string; reason: string }[];
     const filesToCreate = extractFileList(commentBody, "### Files to create", "### Tests", "purpose") as { path: string; purpose: string }[];

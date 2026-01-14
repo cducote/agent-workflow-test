@@ -7,7 +7,7 @@
     }
   },
   "comment": {
-    "body": "/ai plan\n\nAdd a modulo function to src/math.js"
+    "body": "/ai implement\n\nAdd a modulo function to src/math.js"
   },
   "repository": {
     "full_name": "cducote/agent-workflow-test",

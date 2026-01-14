@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { buildRunSpec } from "./runSpec.js";
-import { callClaude } from "./anthropic.js";
+import { callAI } from "./aiProvider.js";
 import { plannerSystemPrompt, plannerUserPrompt, implementerSystemPrompt, implementerUserPrompt, fixerSystemPrompt, fixerUserPrompt, } from "./prompts.js";
 import { commentOnPullRequest } from "./github.js";
 import { resolveScope, readFileContents } from "./scope.js";
@@ -35,7 +35,9 @@ function planToMarkdown(plan) {
     const steps = plan.steps?.length ? plan.steps.map((s) => `- ${s}`).join("\n") : "- (none)";
     const risks = plan.risks?.length ? plan.risks.map((r) => `- ${r}`).join("\n") : "- (none)";
     return [
-        "## 🤖 AI Plan (Plan Mode)",
+        "## 🤖 AI Plan",
+        "",
+        "_Mode: Plan Only (react with 👍 to implement)_",
         "",
         plan.summary ? plan.summary : "",
         "",
@@ -66,7 +68,7 @@ async function runPlanMode(outDir) {
     const repoStructure = await getRepoStructure();
     const system = plannerSystemPrompt();
     const user = plannerUserPrompt(runSpec.featureText, repoStructure);
-    const raw = await callClaude({
+    const raw = await callAI({
         system,
         user,
         maxTokens: runSpec.constraints.maxPlanTokens,
@@ -107,7 +109,7 @@ async function runImplementMode(outDir) {
         const repoStructure = await getRepoStructure();
         const planSystem = plannerSystemPrompt();
         const planUser = plannerUserPrompt(runSpec.featureText, repoStructure);
-        const planRaw = await callClaude({
+        const planRaw = await callAI({
             system: planSystem,
             user: planUser,
             maxTokens: runSpec.constraints.maxPlanTokens,
@@ -126,7 +128,7 @@ async function runImplementMode(outDir) {
     console.log("  Step 4: Generating implementation...");
     const implSystem = implementerSystemPrompt();
     const implUser = implementerUserPrompt({ plan, scope, fileContents });
-    const implRaw = await callClaude({
+    const implRaw = await callAI({
         system: implSystem,
         user: implUser,
         maxTokens: runSpec.constraints.maxImplementTokens,
@@ -267,7 +269,7 @@ async function runFixMode(outDir) {
         // Generate fix
         const fixSystem = fixerSystemPrompt();
         const fixUser = fixerUserPrompt({ previousDiff, testOutput, fileContents });
-        const fixRaw = await callClaude({
+        const fixRaw = await callAI({
             system: fixSystem,
             user: fixUser,
             maxTokens: runSpec.constraints.maxFixTokens,

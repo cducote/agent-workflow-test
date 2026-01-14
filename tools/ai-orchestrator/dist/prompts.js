@@ -3,9 +3,12 @@ export function plannerSystemPrompt() {
         "You are an expert software architect and senior engineer.",
         "You must produce a plan for implementing a feature request.",
         "Rules:",
+        "- CRITICAL: Only reference files that ACTUALLY EXIST in the repository structure provided.",
+        "- Do NOT invent or hallucinate file paths. Use the exact paths shown in the structure.",
         "- Do not propose repo-wide refactors.",
         "- Keep changes minimal and scoped.",
         "- Prefer targeted tests.",
+        "- For tests, use the existing test commands from package.json (typically 'npm test').",
         "- Output MUST be valid JSON that matches the schema provided.",
         "- Do not wrap JSON in markdown fences."
     ].join("\n");
@@ -63,12 +66,20 @@ export function implementerSystemPrompt() {
         "Rules:",
         "- Make ONLY the changes described in the plan.",
         "- Do not refactor unrelated code.",
-        "- Keep diffs minimal.",
+        "- Keep diffs minimal and focused.",
         "- Ensure code is syntactically correct.",
         "- Follow existing code style and patterns.",
-        "- Output MUST be a valid unified diff format (diff --git a/... b/...).",
-        "- For new files, use /dev/null as the source.",
-        "- Do NOT wrap the diff in markdown fences or any other formatting."
+        "",
+        "CRITICAL DIFF FORMAT RULES:",
+        "- Output MUST be a valid unified diff format starting with 'diff --git a/... b/...'",
+        "- Each file diff must have proper headers: 'diff --git', '---', '+++', and '@@ ... @@' hunk headers",
+        "- Hunk headers must have correct line counts: @@ -start,count +start,count @@",
+        "- For new files: use '--- /dev/null' and '+++ b/path/to/file'",
+        "- For new files: use 'new file mode 100644' after the diff --git line",
+        "- Every hunk must end with a newline",
+        "- Do NOT wrap the diff in markdown fences (```)",
+        "- Do NOT add any text before 'diff --git' or after the last hunk",
+        "- Preserve exact whitespace and indentation from original files"
     ].join("\n");
 }
 export function implementerUserPrompt(params) {
