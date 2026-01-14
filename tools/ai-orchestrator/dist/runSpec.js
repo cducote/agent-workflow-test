@@ -175,9 +175,9 @@ export async function buildRunSpec() {
             source,
         },
         constraints: {
-            maxPlanTokens: 2000,
-            maxImplementTokens: 4000,
-            maxFixTokens: 2000,
+            maxPlanTokens: 4000,
+            maxImplementTokens: 8000,
+            maxFixTokens: 4000,
             maxFiles: 20,
             maxFileBytes: 80000,
             maxIterations: 2,

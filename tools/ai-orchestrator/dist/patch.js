@@ -64,5 +64,13 @@ export function extractDiffFromResponse(response) {
     // Git expects "index 0000000..0000000" for new files, but Claude sometimes generates
     // "index 0000000..e69de29" or other incorrect hashes
     diff = diff.replace(/^index 0000000\.\.[a-f0-9]+$/gm, "index 0000000..0000000");
+    // Validate that the patch isn't truncated
+    // A valid patch should not end with an incomplete line (only spaces/tabs followed by newline)
+    const lines = diff.split("\n");
+    const lastLine = lines[lines.length - 1] || "";
+    const secondLastLine = lines[lines.length - 2] || "";
+    if (secondLastLine.match(/^[+ ]\s+$/) || lastLine.match(/^[+ ]\s*$/)) {
+        throw new Error("Patch appears to be truncated (ends with incomplete line). Try reducing scope or increasing maxImplementTokens.");
+    }
     return diff;
 }
