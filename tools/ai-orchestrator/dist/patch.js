@@ -45,14 +45,24 @@ export function extractDiffFromResponse(response) {
     // Claude might wrap diff in markdown fences despite instructions
     const fencePattern = /```(?:diff)?\n([\s\S]*?)\n```/;
     const match = response.match(fencePattern);
+    let diff = "";
     if (match) {
-        return match[1].trim();
+        diff = match[1].trim();
     }
-    // Otherwise, look for diff --git pattern
-    const diffStart = response.indexOf("diff --git");
-    if (diffStart !== -1) {
-        return response.slice(diffStart).trim();
+    else {
+        // Otherwise, look for diff --git pattern
+        const diffStart = response.indexOf("diff --git");
+        if (diffStart !== -1) {
+            diff = response.slice(diffStart).trim();
+        }
+        else {
+            // If nothing found, return as-is and let apply fail with a clear error
+            diff = response.trim();
+        }
     }
-    // If nothing found, return as-is and let apply fail with a clear error
-    return response.trim();
+    // Clean up malformed index lines for new files
+    // Git expects "index 0000000..0000000" for new files, but Claude sometimes generates
+    // "index 0000000..e69de29" or other incorrect hashes
+    diff = diff.replace(/^index 0000000\.\.[a-f0-9]+$/gm, "index 0000000..0000000");
+    return diff;
 }
