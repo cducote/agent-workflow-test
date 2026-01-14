@@ -1,0 +1,41 @@
+{
+  "summary": "Add modulo (%) operation to the calculator by implementing it in the math library, adding a % button to the UI, and including comprehensive tests for the new functionality.",
+  "steps": [
+    "Add modulo function to the math library with proper error handling for division by zero",
+    "Update the calculator store to handle the modulo operation",
+    "Add % button to the OperationButtons component",
+    "Add tests for the modulo operation including edge cases",
+    "Verify the feature works end-to-end"
+  ],
+  "files_to_modify": [
+    {
+      "path": "frontend/lib/math.ts",
+      "reason": "Add modulo function implementation with proper error handling for modulo by zero"
+    },
+    {
+      "path": "frontend/store/calculatorStore.ts",
+      "reason": "Update the store to handle modulo operation in the calculator logic"
+    },
+    {
+      "path": "frontend/components/OperationButtons.tsx",
+      "reason": "Add the % button to the operation buttons UI"
+    },
+    {
+      "path": "frontend/__tests__/math.test.ts",
+      "reason": "Add comprehensive tests for the modulo operation including edge cases like modulo by zero"
+    }
+  ],
+  "files_to_create": [],
+  "tests": [
+    {
+      "command": "npm run test",
+      "reason": "Run all tests to ensure modulo functionality works correctly and doesn't break existing features"
+    }
+  ],
+  "risks": [
+    "Modulo by zero needs proper error handling to prevent application crashes",
+    "Need to ensure modulo operation follows the same UI patterns as other binary operations",
+    "Floating point modulo operations may have precision issues that need to be handled",
+    "Need to verify that the modulo button fits properly in the existing UI layout"
+  ]
+}

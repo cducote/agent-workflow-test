@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import { add, subtract, multiply, divide, square, cube } from "@/lib/math";
+import { add, subtract, multiply, divide, modulo, square, cube } from "@/lib/math";
 
-export type Operation = "+" | "-" | "×" | "÷" | "x²" | "x³" | null;
+export type Operation = "+" | "-" | "×" | "÷" | "%" | "x²" | "x³" | null;
 
 export interface HistoryItem {
   id: string;
@@ -147,6 +147,13 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => ({
             return;
           }
           result = divide(prev, curr);
+          break;
+        case "%":
+          if (curr === 0) {
+            set({ error: "Cannot modulo by zero" });
+            return;
+          }
+          result = modulo(prev, curr);
           break;
         default:
           return;

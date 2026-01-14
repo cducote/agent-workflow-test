@@ -1,0 +1,7 @@
+[
+  {
+    "success": true,
+    "output": "\n> agent-workflow-test@1.0.0 test\n> jest\n\n",
+    "command": "npm run test"
+  }
+]

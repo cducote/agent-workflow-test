@@ -38,6 +38,16 @@ export function divide(a: number, b: number): number {
   return a / b;
 }
 
+export function modulo(a: number, b: number): number {
+  if (a == null || b == null) {
+    return 0;
+  }
+  if (b === 0) {
+    throw new Error("Modulo by zero");
+  }
+  return a % b;
+}
+
 export function square(x: number): number | null {
   if (x == null) {
     return null;
