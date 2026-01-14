@@ -45,26 +45,45 @@ export function summarizeDiff(diff) {
     ].join("\n");
 }
 export function extractDiffFromResponse(response) {
+    // Log raw response length for debugging
+    console.log(`  Raw AI response length: ${response.length} chars`);
     // Claude might wrap diff in markdown fences despite instructions
     const fencePattern = /```(?:diff)?\n([\s\S]*?)\n```/;
     const match = response.match(fencePattern);
     let diff = "";
     if (match) {
+        console.log("  Found diff in markdown fence");
         diff = match[1];
     }
     else {
         // Otherwise, look for diff --git pattern
         const diffStart = response.indexOf("diff --git");
         if (diffStart !== -1) {
+            console.log(`  Found 'diff --git' at position ${diffStart}`);
             diff = response.slice(diffStart);
         }
         else {
-            // If nothing found, return as-is and let apply fail with a clear error
-            diff = response;
+            // Check if it starts with --- (some tools output this format)
+            const dashStart = response.indexOf("--- ");
+            if (dashStart !== -1 && dashStart < 100) {
+                console.log(`  Found '---' at position ${dashStart}`);
+                diff = response.slice(dashStart);
+            }
+            else {
+                // If nothing found, log first 200 chars for debugging
+                console.log(`  No diff pattern found. First 200 chars: ${response.slice(0, 200)}`);
+                diff = response;
+            }
         }
     }
-    // Sanitize the diff
-    diff = sanitizeDiff(diff);
+    // Light sanitization - just ensure proper line endings
+    diff = diff.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    // Ensure ends with newline
+    if (!diff.endsWith("\n")) {
+        diff += "\n";
+    }
+    console.log(`  Extracted diff length: ${diff.length} chars`);
+    console.log(`  Diff starts with: ${diff.slice(0, 80)}`);
     return diff;
 }
 /** Clean up common AI-generated diff issues */
