@@ -27,3 +27,13 @@ export async function getPullRequestBody(params) {
     const pr = await octokit.pulls.get({ owner, repo, pull_number: params.prNumber });
     return { title: pr.data.title ?? "", body: pr.data.body ?? "" };
 }
+export async function getCommentById(params) {
+    const octokit = getOctokit();
+    const { owner, repo } = parseRepo(params.repoFull);
+    const comment = await octokit.issues.getComment({
+        owner,
+        repo,
+        comment_id: params.commentId,
+    });
+    return comment.data.body || "";
+}

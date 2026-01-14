@@ -8,6 +8,8 @@ export type RunSpec = {
   prNumber?: number;
   // Feature/request text the agent should work from
   featureText: string;
+  // Pre-parsed plan from reaction trigger (skips planning phase)
+  preParsedPlan?: PlanJson;
   // Raw trigger info for audit/debug
   trigger: {
     eventName: string;

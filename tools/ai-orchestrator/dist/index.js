@@ -90,17 +90,26 @@ async function runImplementMode(outDir) {
     const runSpec = await buildRunSpec();
     fs.writeFileSync(path.join(outDir, "runSpec.json"), JSON.stringify(runSpec, null, 2));
     console.log("Running Implement Mode...");
-    // Step 1: Generate plan
-    console.log("  Step 1: Generating plan...");
-    const planSystem = plannerSystemPrompt();
-    const planUser = plannerUserPrompt(runSpec.featureText);
-    const planRaw = await callClaude({
-        system: planSystem,
-        user: planUser,
-        maxTokens: runSpec.constraints.maxPlanTokens,
-    });
-    const plan = safeJsonParse(planRaw);
-    fs.writeFileSync(path.join(outDir, "plan.json"), JSON.stringify(plan, null, 2));
+    let plan;
+    // Check if we have a pre-parsed plan from reaction trigger
+    if (runSpec.preParsedPlan) {
+        console.log("  Using pre-parsed plan from reaction trigger (skipping planning step)...");
+        plan = runSpec.preParsedPlan;
+        fs.writeFileSync(path.join(outDir, "plan.json"), JSON.stringify(plan, null, 2));
+    }
+    else {
+        // Step 1: Generate plan
+        console.log("  Step 1: Generating plan...");
+        const planSystem = plannerSystemPrompt();
+        const planUser = plannerUserPrompt(runSpec.featureText);
+        const planRaw = await callClaude({
+            system: planSystem,
+            user: planUser,
+            maxTokens: runSpec.constraints.maxPlanTokens,
+        });
+        plan = safeJsonParse(planRaw);
+        fs.writeFileSync(path.join(outDir, "plan.json"), JSON.stringify(plan, null, 2));
+    }
     // Step 2: Resolve scope
     console.log("  Step 2: Resolving scope...");
     const scope = await resolveScope(plan, runSpec);

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { RunMode, RunSpec } from "./schemas.js";
-import { getPullRequestBody } from "./github.js";
+import { getPullRequestBody, getCommentById } from "./github.js";
+import { parsePlanFromComment } from "./planParser.js";
 
 type GitHubEvent = any;
 
@@ -18,6 +19,11 @@ function readEvent(): GitHubEvent {
 function parseModeFromInputs(eventName: string, event: GitHubEvent): RunMode {
   const inputMode = (process.env.INPUT_MODE || "").trim() as RunMode;
   if (inputMode) return inputMode;
+
+  if (eventName === "issue_comment_reaction") {
+    // Reaction trigger should always use implement mode (using existing plan)
+    return "implement";
+  }
 
   if (eventName === "issue_comment") {
     const body = (event?.comment?.body || "").trim();
@@ -55,6 +61,33 @@ function featureOverride(): string | undefined {
   return f || undefined;
 }
 
+async function parsePlanFromReaction(eventName: string, event: GitHubEvent, repository: string): Promise<{ featureText: string; preParsedPlan?: any } | null> {
+  if (eventName !== "issue_comment_reaction") return null;
+
+  const reaction = event?.reaction?.content;
+  const commentId = event?.comment?.id;
+
+  if (reaction !== "+1" || !commentId) return null;
+
+  try {
+    const commentBody = await getCommentById({ repoFull: repository, commentId });
+
+    // Check if this is an AI plan comment
+    if (!commentBody.includes("## 🤖 AI Plan")) return null;
+
+    const plan = parsePlanFromComment(commentBody);
+    if (!plan) return null;
+
+    return {
+      featureText: `Implementing plan from AI Plan comment:\n\n${plan.summary}`,
+      preParsedPlan: plan,
+    };
+  } catch (err) {
+    console.warn("Failed to parse plan from reaction:", err);
+    return null;
+  }
+}
+
 export async function buildRunSpec(): Promise<RunSpec> {
   const eventName = process.env.GITHUB_EVENT_NAME || "unknown";
   const repository = process.env.GITHUB_REPOSITORY || "";
@@ -67,20 +100,30 @@ export async function buildRunSpec(): Promise<RunSpec> {
   const mode = parseModeFromInputs(eventName, event);
   const prNumber = parsePrNumber(eventName, event);
 
-  let featureText =
-    featureOverride() ||
-    (eventName === "issue_comment" ? (event?.comment?.body || "") : "") ||
-    "";
+  // Check for reaction-based trigger first
+  const reactionPlan = await parsePlanFromReaction(eventName, event, repository);
+  let featureText = "";
+  let preParsedPlan = undefined;
 
-  // If we have a PR number and no explicit feature text, pull title/body as baseline.
-  if (prNumber && !featureOverride() && !featureText.trim()) {
-    const pr = await getPullRequestBody({ repoFull: repository, prNumber });
-    const parts = [
-      `PR Title: ${pr.title}`,
-      "",
-      pr.body?.trim() ? `PR Body:\n${pr.body.trim()}` : "PR Body: (empty)",
-    ];
-    featureText = parts.join("\n");
+  if (reactionPlan) {
+    featureText = reactionPlan.featureText;
+    preParsedPlan = reactionPlan.preParsedPlan;
+  } else {
+    featureText =
+      featureOverride() ||
+      (eventName === "issue_comment" ? (event?.comment?.body || "") : "") ||
+      "";
+
+    // If we have a PR number and no explicit feature text, pull title/body as baseline.
+    if (prNumber && !featureOverride() && !featureText.trim()) {
+      const pr = await getPullRequestBody({ repoFull: repository, prNumber });
+      const parts = [
+        `PR Title: ${pr.title}`,
+        "",
+        pr.body?.trim() ? `PR Body:\n${pr.body.trim()}` : "PR Body: (empty)",
+      ];
+      featureText = parts.join("\n");
+    }
   }
 
   if (!featureText.trim()) {
@@ -102,6 +145,7 @@ export async function buildRunSpec(): Promise<RunSpec> {
     sha,
     prNumber,
     featureText,
+    preParsedPlan,
     trigger: {
       eventName,
       actor: event?.sender?.login,
