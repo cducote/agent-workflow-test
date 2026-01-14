@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { buildRunSpec } from "./runSpec.js";
-import { callClaude } from "./anthropic.js";
+import { callAI } from "./aiProvider.js";
 import { plannerSystemPrompt, plannerUserPrompt, implementerSystemPrompt, implementerUserPrompt, fixerSystemPrompt, fixerUserPrompt, } from "./prompts.js";
 import { commentOnPullRequest } from "./github.js";
 import { resolveScope, readFileContents } from "./scope.js";
@@ -35,7 +35,9 @@ function planToMarkdown(plan) {
     const steps = plan.steps?.length ? plan.steps.map((s) => `- ${s}`).join("\n") : "- (none)";
     const risks = plan.risks?.length ? plan.risks.map((r) => `- ${r}`).join("\n") : "- (none)";
     return [
-        "## 🤖 AI Plan (Plan Mode)",
+        "## 🤖 AI Plan",
+        "",
+        "_Planning complete. Comment `/ai implement` to apply these changes._",
         "",
         plan.summary ? plan.summary : "",
         "",
@@ -61,9 +63,12 @@ async function runPlanMode(outDir) {
     const runSpec = await buildRunSpec();
     fs.writeFileSync(path.join(outDir, "runSpec.json"), JSON.stringify(runSpec, null, 2));
     console.log("Running Plan Mode...");
+    // Get repo structure to inform planning
+    const { getRepoStructure } = await import("./scope.js");
+    const repoStructure = await getRepoStructure();
     const system = plannerSystemPrompt();
-    const user = plannerUserPrompt(runSpec.featureText);
-    const raw = await callClaude({
+    const user = plannerUserPrompt(runSpec.featureText, repoStructure);
+    const raw = await callAI({
         system,
         user,
         maxTokens: runSpec.constraints.maxPlanTokens,
@@ -100,9 +105,11 @@ async function runImplementMode(outDir) {
     else {
         // Step 1: Generate plan
         console.log("  Step 1: Generating plan...");
+        const { getRepoStructure } = await import("./scope.js");
+        const repoStructure = await getRepoStructure();
         const planSystem = plannerSystemPrompt();
-        const planUser = plannerUserPrompt(runSpec.featureText);
-        const planRaw = await callClaude({
+        const planUser = plannerUserPrompt(runSpec.featureText, repoStructure);
+        const planRaw = await callAI({
             system: planSystem,
             user: planUser,
             maxTokens: runSpec.constraints.maxPlanTokens,
@@ -121,7 +128,7 @@ async function runImplementMode(outDir) {
     console.log("  Step 4: Generating implementation...");
     const implSystem = implementerSystemPrompt();
     const implUser = implementerUserPrompt({ plan, scope, fileContents });
-    const implRaw = await callClaude({
+    const implRaw = await callAI({
         system: implSystem,
         user: implUser,
         maxTokens: runSpec.constraints.maxImplementTokens,
@@ -262,7 +269,7 @@ async function runFixMode(outDir) {
         // Generate fix
         const fixSystem = fixerSystemPrompt();
         const fixUser = fixerUserPrompt({ previousDiff, testOutput, fileContents });
-        const fixRaw = await callClaude({
+        const fixRaw = await callAI({
             system: fixSystem,
             user: fixUser,
             maxTokens: runSpec.constraints.maxFixTokens,
@@ -322,7 +329,9 @@ async function runFixMode(outDir) {
 }
 async function main() {
     const outDir = ensureOutDir();
-    const mode = process.env.INPUT_MODE || "plan";
+    // Get the mode from runSpec to ensure we use the parsed mode from issue_comment, etc.
+    const runSpec = await buildRunSpec();
+    const mode = runSpec.mode;
     try {
         if (mode === "plan") {
             await runPlanMode(outDir);

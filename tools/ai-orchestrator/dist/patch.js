@@ -1,15 +1,18 @@
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { findRepoRoot } from "./scope.js";
 export function applyPatch(patchContent) {
     try {
-        // Write patch to a temporary file
-        const patchPath = path.join(process.cwd(), "temp.patch");
+        const repoRoot = findRepoRoot();
+        // Write patch to a temporary file in repo root
+        const patchPath = path.join(repoRoot, "temp.patch");
         fs.writeFileSync(patchPath, patchContent);
-        // Apply using git apply
+        // Apply using git apply from repo root
         execSync(`git apply --whitespace=nowarn "${patchPath}"`, {
             stdio: "pipe",
             encoding: "utf8",
+            cwd: repoRoot,
         });
         // Clean up
         fs.unlinkSync(patchPath);
@@ -45,14 +48,73 @@ export function extractDiffFromResponse(response) {
     // Claude might wrap diff in markdown fences despite instructions
     const fencePattern = /```(?:diff)?\n([\s\S]*?)\n```/;
     const match = response.match(fencePattern);
+    let diff = "";
     if (match) {
-        return match[1].trim();
+        diff = match[1];
     }
-    // Otherwise, look for diff --git pattern
-    const diffStart = response.indexOf("diff --git");
-    if (diffStart !== -1) {
-        return response.slice(diffStart).trim();
+    else {
+        // Otherwise, look for diff --git pattern
+        const diffStart = response.indexOf("diff --git");
+        if (diffStart !== -1) {
+            diff = response.slice(diffStart);
+        }
+        else {
+            // If nothing found, return as-is and let apply fail with a clear error
+            diff = response;
+        }
     }
-    // If nothing found, return as-is and let apply fail with a clear error
-    return response.trim();
+    // Sanitize the diff
+    diff = sanitizeDiff(diff);
+    return diff;
+}
+/** Clean up common AI-generated diff issues */
+function sanitizeDiff(diff) {
+    let lines = diff.split("\n");
+    const result = [];
+    let inHunk = false;
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+        // Skip empty lines before first diff --git
+        if (result.length === 0 && !line.startsWith("diff --git")) {
+            if (line.trim() === "")
+                continue;
+            // Skip any preamble text before the diff
+            if (!line.startsWith("diff ") && !line.startsWith("---") && !line.startsWith("+++")) {
+                continue;
+            }
+        }
+        // Stop at any trailing text after the diff (explanations, etc.)
+        if (result.length > 0 && !line.startsWith("diff ") && !line.startsWith("---") &&
+            !line.startsWith("+++") && !line.startsWith("@@") && !line.startsWith("+") &&
+            !line.startsWith("-") && !line.startsWith(" ") && !line.startsWith("index ") &&
+            !line.startsWith("new file") && !line.startsWith("deleted file") &&
+            line.trim() !== "" && !line.startsWith("\\")) {
+            // Check if this looks like start of new explanation text
+            if (line.match(/^[A-Z]/) || line.match(/^#/) || line.match(/^Note/i)) {
+                break;
+            }
+        }
+        // Fix: Remove trailing whitespace from context/add/remove lines (causes issues)
+        if (line.match(/^[ +-]/)) {
+            line = line.replace(/\s+$/, "");
+        }
+        // Track hunk state
+        if (line.startsWith("@@")) {
+            inHunk = true;
+        }
+        else if (line.startsWith("diff --git")) {
+            inHunk = false;
+        }
+        result.push(line);
+    }
+    // Ensure diff ends with newline
+    let finalDiff = result.join("\n");
+    if (!finalDiff.endsWith("\n")) {
+        finalDiff += "\n";
+    }
+    // Clean up malformed index lines for new files
+    finalDiff = finalDiff.replace(/^index 0000000\.\.[a-f0-9]+$/gm, "index 0000000..0000000");
+    // Remove any Windows line endings
+    finalDiff = finalDiff.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    return finalDiff;
 }

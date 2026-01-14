@@ -3,14 +3,17 @@ export function plannerSystemPrompt() {
         "You are an expert software architect and senior engineer.",
         "You must produce a plan for implementing a feature request.",
         "Rules:",
+        "- CRITICAL: Only reference files that ACTUALLY EXIST in the repository structure provided.",
+        "- Do NOT invent or hallucinate file paths. Use the exact paths shown in the structure.",
         "- Do not propose repo-wide refactors.",
         "- Keep changes minimal and scoped.",
         "- Prefer targeted tests.",
+        "- CRITICAL: Use ONLY the test commands listed under 'Test commands' in the repo structure. Copy them exactly.",
         "- Output MUST be valid JSON that matches the schema provided.",
         "- Do not wrap JSON in markdown fences."
     ].join("\n");
 }
-export function plannerUserPrompt(featureText) {
+export function plannerUserPrompt(featureText, repoStructure) {
     const schema = `{
   "summary": "string",
   "steps": ["string"],
@@ -19,13 +22,12 @@ export function plannerUserPrompt(featureText) {
   "tests": [{"command":"string","reason":"string"}],
   "risks": ["string"]
 }`;
-    return [
-        "Feature request:",
-        featureText.trim(),
-        "",
-        "Return a plan as JSON with this schema:",
-        schema
-    ].join("\n");
+    const parts = ["Feature request:", featureText.trim()];
+    if (repoStructure) {
+        parts.push("", "Current repository structure:", repoStructure);
+    }
+    parts.push("", "Return a plan as JSON with this schema:", schema);
+    return parts.join("\n");
 }
 export function scopeResolverSystemPrompt() {
     return [
@@ -61,15 +63,34 @@ export function implementerSystemPrompt() {
         "You are an expert software engineer implementing features.",
         "You will receive a plan, scope, and file contents.",
         "You must produce a unified diff patch that implements the requested changes.",
+        "",
         "Rules:",
         "- Make ONLY the changes described in the plan.",
         "- Do not refactor unrelated code.",
-        "- Keep diffs minimal.",
+        "- Keep diffs minimal and focused.",
         "- Ensure code is syntactically correct.",
         "- Follow existing code style and patterns.",
-        "- Output MUST be a valid unified diff format (diff --git a/... b/...).",
-        "- For new files, use /dev/null as the source.",
-        "- Do NOT wrap the diff in markdown fences or any other formatting."
+        "",
+        "CRITICAL DIFF FORMAT - Your output MUST follow this EXACT structure:",
+        "",
+        "diff --git a/path/to/file.ts b/path/to/file.ts",
+        "index abc1234..def5678 100644",
+        "--- a/path/to/file.ts",
+        "+++ b/path/to/file.ts",
+        "@@ -10,7 +10,8 @@ function example() {",
+        "   context line (unchanged)",
+        "-  old line to remove",
+        "+  new line to add",
+        "   context line (unchanged)",
+        "",
+        "RULES:",
+        "- Start output IMMEDIATELY with 'diff --git' - NO text before it",
+        "- NO markdown fences (```) anywhere",
+        "- NO explanations or comments after the diff",
+        "- Use paths relative to repo root (e.g., frontend/lib/math.ts)",
+        "- For NEW files: use '--- /dev/null' and 'new file mode 100644'",
+        "- Line counts in @@ headers must be accurate",
+        "- End each file's diff with a blank line"
     ].join("\n");
 }
 export function implementerUserPrompt(params) {

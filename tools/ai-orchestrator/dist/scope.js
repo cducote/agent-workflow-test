@@ -1,5 +1,6 @@
 import fs from "node:fs";
-import { callClaude } from "./anthropic.js";
+import path from "node:path";
+import { callAI } from "./aiProvider.js";
 import { scopeResolverSystemPrompt, scopeResolverUserPrompt } from "./prompts.js";
 const EXCLUDED_PATTERNS = [
     "node_modules/**",
@@ -14,29 +15,34 @@ const EXCLUDED_PATTERNS = [
 export async function resolveScope(plan, runSpec) {
     // Get a sample of repo structure
     const repoStructure = await getRepoStructure();
+    const repoRoot = findRepoRoot();
     const system = scopeResolverSystemPrompt();
     const user = scopeResolverUserPrompt(plan, repoStructure);
-    const raw = await callClaude({
+    const raw = await callAI({
         system,
         user,
         maxTokens: 1000,
     });
     const scope = safeJsonParse(raw);
-    // Enforce constraints
+    // Enforce constraints - resolve paths relative to repo root
     const filtered = scope.included_files.filter((f) => {
+        // Resolve path relative to repo root
+        const fullPath = path.isAbsolute(f.path) ? f.path : path.join(repoRoot, f.path);
         // Check file exists
         try {
-            const stat = fs.statSync(f.path);
+            const stat = fs.statSync(fullPath);
             if (!stat.isFile())
                 return false;
             if (stat.size > runSpec.constraints.maxFileBytes) {
                 console.warn(`Skipping ${f.path}: exceeds max file size`);
                 return false;
             }
+            // Update the path to be absolute for later use
+            f.path = fullPath;
             return true;
         }
         catch {
-            console.warn(`Skipping ${f.path}: file not found`);
+            console.warn(`Skipping ${f.path}: file not found at ${fullPath}`);
             return false;
         }
     });
@@ -63,23 +69,112 @@ export async function readFileContents(scope) {
     }
     return results;
 }
-async function getRepoStructure() {
-    // Simple: just list top-level directories and a few key files
+export function findRepoRoot() {
+    // Find the repo root by looking for .git directory
+    let dir = process.cwd();
+    for (let i = 0; i < 10; i++) {
+        if (fs.existsSync(path.join(dir, ".git"))) {
+            return dir;
+        }
+        const parent = path.dirname(dir);
+        if (parent === dir)
+            break; // reached filesystem root
+        dir = parent;
+    }
+    // Fallback: if running from tools/ai-orchestrator, go up two levels
+    const twoUp = path.join(process.cwd(), "../..");
+    if (fs.existsSync(path.join(twoUp, ".git"))) {
+        return twoUp;
+    }
+    return process.cwd();
+}
+export async function getRepoStructure() {
+    // Find the actual repo root, not the current working directory
+    const repoRoot = findRepoRoot();
+    // Discover where tests can be run
+    const testLocations = discoverTestLocations(repoRoot);
+    // List top-level structure and recursively list important directories
     try {
-        const entries = fs.readdirSync(".", { withFileTypes: true });
+        const entries = fs.readdirSync(repoRoot, { withFileTypes: true });
         const dirs = entries.filter((e) => e.isDirectory() && !e.name.startsWith(".")).map((e) => e.name);
         const files = entries.filter((e) => e.isFile()).map((e) => e.name);
-        return [
+        const lines = [
+            "Repository structure:",
+            `(root: ${repoRoot})`,
+            "",
+            "Test commands (use these exactly):",
+            ...testLocations.map((t) => `  ${t}`),
+            "",
+            "Root files:",
+            ...files.map((f) => `  ${f}`),
+            "",
             "Directories:",
             ...dirs.map((d) => `  ${d}/`),
-            "",
-            "Files:",
-            ...files.map((f) => `  ${f}`),
-        ].join("\n");
+        ];
+        // Recursively list important directories to show actual code structure
+        // Include frontend/ for Next.js/React projects
+        for (const dir of ["src", "tests", "lib", "frontend", "frontend/components", "frontend/lib", "frontend/store", "frontend/app"]) {
+            const fullPath = path.join(repoRoot, dir);
+            if (fs.existsSync(fullPath)) {
+                lines.push("", `Contents of ${dir}/:`);
+                try {
+                    const subFiles = walkDirectory(fullPath, 2); // Max depth 2
+                    // Make paths relative to repo root
+                    lines.push(...subFiles.map((f) => `  ${path.relative(repoRoot, f)}`));
+                }
+                catch (err) {
+                    lines.push(`  (unable to read ${dir}/)`);
+                }
+            }
+        }
+        return lines.join("\n");
     }
     catch {
         return "Unable to read repository structure.";
     }
+}
+function walkDirectory(dir, maxDepth, currentDepth = 0) {
+    if (currentDepth >= maxDepth)
+        return [];
+    try {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        const result = [];
+        for (const entry of entries) {
+            const relativePath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                result.push(relativePath + "/");
+                result.push(...walkDirectory(relativePath, maxDepth, currentDepth + 1));
+            }
+            else {
+                result.push(relativePath);
+            }
+        }
+        return result;
+    }
+    catch {
+        return [];
+    }
+}
+/** Discover package.json files with test scripts - helps AI know where to run tests */
+export function discoverTestLocations(repoRoot) {
+    const locations = [];
+    const checkDirs = ["", "frontend", "backend", "src", "packages"];
+    for (const dir of checkDirs) {
+        const pkgPath = path.join(repoRoot, dir, "package.json");
+        try {
+            const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+            const scripts = pkg.scripts || {};
+            const testCmd = scripts["test:ci"] ? "test:ci" : scripts["test"] ? "test" : null;
+            if (testCmd) {
+                const prefix = dir ? `cd ${dir} && ` : "";
+                locations.push(`${prefix}npm run ${testCmd}`);
+            }
+        }
+        catch {
+            // No package.json or can't parse
+        }
+    }
+    return locations;
 }
 function safeJsonParse(text) {
     const trimmed = text.trim();
