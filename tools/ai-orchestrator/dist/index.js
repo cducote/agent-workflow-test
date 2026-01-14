@@ -205,22 +205,24 @@ async function runImplementMode(outDir) {
         console.log("  Step 7: Committing and pushing changes...");
         try {
             const { execSync } = await import("node:child_process");
+            const repoRoot = findRepoRoot();
+            const execOpts = { stdio: "inherit", cwd: repoRoot };
             // Configure git
-            execSync('git config user.name "github-actions[bot]"', { stdio: "inherit" });
-            execSync('git config user.email "github-actions[bot]@users.noreply.github.com"', { stdio: "inherit" });
+            execSync('git config user.name "github-actions[bot]"', execOpts);
+            execSync('git config user.email "github-actions[bot]@users.noreply.github.com"', execOpts);
             // Add all changes
-            execSync("git add -A", { stdio: "inherit" });
+            execSync("git add -A", execOpts);
             // Check if there are changes to commit
             try {
-                execSync("git diff --cached --quiet");
+                execSync("git diff --cached --quiet", execOpts);
                 console.log("  No changes to commit.");
             }
             catch {
                 // There are changes, commit them
                 const commitMessage = `AI Implementation: ${plan.summary}\n\n🤖 Generated with AI Orchestrator\n\nCo-Authored-By: github-actions[bot] <github-actions[bot]@users.noreply.github.com>`;
-                execSync(`git commit -m "${commitMessage.replace(/"/g, '\\"')}"`, { stdio: "inherit" });
+                execSync(`git commit -m "${commitMessage.replace(/"/g, '\\"')}"`, execOpts);
                 // Push to the PR branch
-                execSync("git push", { stdio: "inherit" });
+                execSync("git push", execOpts);
                 console.log("  Changes committed and pushed successfully.");
             }
         }
