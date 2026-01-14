@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 import { callClaude } from "./anthropic.js";
 import { scopeResolverSystemPrompt, scopeResolverUserPrompt } from "./prompts.js";
 const EXCLUDED_PATTERNS = [
@@ -63,22 +64,60 @@ export async function readFileContents(scope) {
     }
     return results;
 }
-async function getRepoStructure() {
-    // Simple: just list top-level directories and a few key files
+export async function getRepoStructure() {
+    // List top-level structure and recursively list src/ and tests/ directories
     try {
         const entries = fs.readdirSync(".", { withFileTypes: true });
         const dirs = entries.filter((e) => e.isDirectory() && !e.name.startsWith(".")).map((e) => e.name);
         const files = entries.filter((e) => e.isFile()).map((e) => e.name);
-        return [
+        const lines = [
+            "Repository structure:",
+            "",
+            "Root files:",
+            ...files.map((f) => `  ${f}`),
+            "",
             "Directories:",
             ...dirs.map((d) => `  ${d}/`),
-            "",
-            "Files:",
-            ...files.map((f) => `  ${f}`),
-        ].join("\n");
+        ];
+        // Recursively list src/ and tests/ to show actual code structure
+        for (const dir of ["src", "tests", "lib"]) {
+            if (dirs.includes(dir)) {
+                lines.push("", `Contents of ${dir}/:`);
+                try {
+                    const subFiles = walkDirectory(dir, 3); // Max depth 3
+                    lines.push(...subFiles.map((f) => `  ${f}`));
+                }
+                catch (err) {
+                    lines.push(`  (unable to read ${dir}/)`);
+                }
+            }
+        }
+        return lines.join("\n");
     }
     catch {
         return "Unable to read repository structure.";
+    }
+}
+function walkDirectory(dir, maxDepth, currentDepth = 0) {
+    if (currentDepth >= maxDepth)
+        return [];
+    try {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        const result = [];
+        for (const entry of entries) {
+            const relativePath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                result.push(relativePath + "/");
+                result.push(...walkDirectory(relativePath, maxDepth, currentDepth + 1));
+            }
+            else {
+                result.push(relativePath);
+            }
+        }
+        return result;
+    }
+    catch {
+        return [];
     }
 }
 function safeJsonParse(text) {

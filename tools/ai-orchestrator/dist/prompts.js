@@ -10,7 +10,7 @@ export function plannerSystemPrompt() {
         "- Do not wrap JSON in markdown fences."
     ].join("\n");
 }
-export function plannerUserPrompt(featureText) {
+export function plannerUserPrompt(featureText, repoStructure) {
     const schema = `{
   "summary": "string",
   "steps": ["string"],
@@ -19,13 +19,12 @@ export function plannerUserPrompt(featureText) {
   "tests": [{"command":"string","reason":"string"}],
   "risks": ["string"]
 }`;
-    return [
-        "Feature request:",
-        featureText.trim(),
-        "",
-        "Return a plan as JSON with this schema:",
-        schema
-    ].join("\n");
+    const parts = ["Feature request:", featureText.trim()];
+    if (repoStructure) {
+        parts.push("", "Current repository structure:", repoStructure);
+    }
+    parts.push("", "Return a plan as JSON with this schema:", schema);
+    return parts.join("\n");
 }
 export function scopeResolverSystemPrompt() {
     return [

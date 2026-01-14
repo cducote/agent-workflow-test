@@ -76,8 +76,12 @@ async function runPlanMode(outDir: string) {
 
   console.log("Running Plan Mode...");
 
+  // Get repo structure to inform planning
+  const { getRepoStructure } = await import("./scope.js");
+  const repoStructure = await getRepoStructure();
+
   const system = plannerSystemPrompt();
-  const user = plannerUserPrompt(runSpec.featureText);
+  const user = plannerUserPrompt(runSpec.featureText, repoStructure);
 
   const raw = await callClaude({
     system,
@@ -122,8 +126,10 @@ async function runImplementMode(outDir: string) {
   } else {
     // Step 1: Generate plan
     console.log("  Step 1: Generating plan...");
+    const { getRepoStructure } = await import("./scope.js");
+    const repoStructure = await getRepoStructure();
     const planSystem = plannerSystemPrompt();
-    const planUser = plannerUserPrompt(runSpec.featureText);
+    const planUser = plannerUserPrompt(runSpec.featureText, repoStructure);
     const planRaw = await callClaude({
       system: planSystem,
       user: planUser,

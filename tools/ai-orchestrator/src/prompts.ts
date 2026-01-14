@@ -13,7 +13,7 @@ export function plannerSystemPrompt(): string {
   ].join("\n");
 }
 
-export function plannerUserPrompt(featureText: string): string {
+export function plannerUserPrompt(featureText: string, repoStructure?: string): string {
   const schema = `{
   "summary": "string",
   "steps": ["string"],
@@ -22,13 +22,16 @@ export function plannerUserPrompt(featureText: string): string {
   "tests": [{"command":"string","reason":"string"}],
   "risks": ["string"]
 }`;
-  return [
-    "Feature request:",
-    featureText.trim(),
-    "",
-    "Return a plan as JSON with this schema:",
-    schema
-  ].join("\n");
+
+  const parts = ["Feature request:", featureText.trim()];
+
+  if (repoStructure) {
+    parts.push("", "Current repository structure:", repoStructure);
+  }
+
+  parts.push("", "Return a plan as JSON with this schema:", schema);
+
+  return parts.join("\n");
 }
 
 export function scopeResolverSystemPrompt(): string {
