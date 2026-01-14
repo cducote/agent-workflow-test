@@ -149,6 +149,8 @@ async function runImplementMode(outDir) {
         if (runSpec.prNumber) {
             // Include first 25 lines of patch in error for debugging
             const debugPreview = diff.split("\n").slice(0, 25).map(l => `  ${l}`).join("\n");
+            // Also show first 300 chars of raw response
+            const rawPreview = implRaw.slice(0, 300).replace(/`/g, "'");
             await commentOnPullRequest({
                 repoFull: runSpec.repository,
                 prNumber: runSpec.prNumber,
@@ -160,7 +162,14 @@ async function runImplementMode(outDir) {
                     applyResult.error,
                     "```",
                     "",
-                    "<details><summary>Patch preview (first 25 lines)</summary>",
+                    "<details><summary>Raw AI response (first 300 chars)</summary>",
+                    "",
+                    "```",
+                    rawPreview,
+                    "```",
+                    "</details>",
+                    "",
+                    "<details><summary>Extracted patch (first 25 lines)</summary>",
                     "",
                     "```diff",
                     debugPreview,
