@@ -1,0 +1,22 @@
+{
+  "action": "created",
+  "issue": {
+    "number": 21,
+    "pull_request": {
+      "url": "https://api.github.com/repos/cducote/agent-workflow-test/pulls/21"
+    }
+  },
+  "comment": {
+    "body": "/ai plan\n\nAdd a modulo function to src/math.js"
+  },
+  "repository": {
+    "full_name": "cducote/agent-workflow-test",
+    "name": "agent-workflow-test",
+    "owner": {
+      "login": "cducote"
+    }
+  },
+  "sender": {
+    "login": "cducote"
+  }
+}

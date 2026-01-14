@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { PlanJson, ScopeJson, RunSpec } from "./schemas.js";
-import { callClaude } from "./anthropic.js";
+import { callAI } from "./aiProvider.js";
 import { scopeResolverSystemPrompt, scopeResolverUserPrompt } from "./prompts.js";
 
 const EXCLUDED_PATTERNS = [
@@ -22,7 +22,7 @@ export async function resolveScope(plan: PlanJson, runSpec: RunSpec): Promise<Sc
   const system = scopeResolverSystemPrompt();
   const user = scopeResolverUserPrompt(plan, repoStructure);
 
-  const raw = await callClaude({
+  const raw = await callAI({
     system,
     user,
     maxTokens: 1000,

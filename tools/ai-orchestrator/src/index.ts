@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { buildRunSpec } from "./runSpec.js";
-import { callClaude } from "./anthropic.js";
+import { callAI, getAvailableProviders } from "./aiProvider.js";
 import {
   plannerSystemPrompt,
   plannerUserPrompt,
@@ -83,7 +83,7 @@ async function runPlanMode(outDir: string) {
   const system = plannerSystemPrompt();
   const user = plannerUserPrompt(runSpec.featureText, repoStructure);
 
-  const raw = await callClaude({
+  const raw = await callAI({
     system,
     user,
     maxTokens: runSpec.constraints.maxPlanTokens,
@@ -130,7 +130,7 @@ async function runImplementMode(outDir: string) {
     const repoStructure = await getRepoStructure();
     const planSystem = plannerSystemPrompt();
     const planUser = plannerUserPrompt(runSpec.featureText, repoStructure);
-    const planRaw = await callClaude({
+    const planRaw = await callAI({
       system: planSystem,
       user: planUser,
       maxTokens: runSpec.constraints.maxPlanTokens,
@@ -152,7 +152,7 @@ async function runImplementMode(outDir: string) {
   console.log("  Step 4: Generating implementation...");
   const implSystem = implementerSystemPrompt();
   const implUser = implementerUserPrompt({ plan, scope, fileContents });
-  const implRaw = await callClaude({
+  const implRaw = await callAI({
     system: implSystem,
     user: implUser,
     maxTokens: runSpec.constraints.maxImplementTokens,
@@ -320,7 +320,7 @@ async function runFixMode(outDir: string) {
     // Generate fix
     const fixSystem = fixerSystemPrompt();
     const fixUser = fixerUserPrompt({ previousDiff, testOutput, fileContents });
-    const fixRaw = await callClaude({
+    const fixRaw = await callAI({
       system: fixSystem,
       user: fixUser,
       maxTokens: runSpec.constraints.maxFixTokens,
