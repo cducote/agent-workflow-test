@@ -21,6 +21,13 @@ export async function callClaude(params) {
         throw new Error(`Anthropic API error ${res.status}: ${text}`);
     }
     const json = (await res.json());
+    // Log stop reason for debugging
+    if (json.stop_reason) {
+        console.log(`  Claude stop_reason: ${json.stop_reason}`);
+    }
+    if (json.stop_reason === "max_tokens") {
+        console.warn("  WARNING: Response was truncated due to max_tokens limit");
+    }
     const text = json.content
         .filter((c) => c.type === "text" && typeof c.text === "string")
         .map((c) => c.text)

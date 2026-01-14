@@ -1,5 +1,6 @@
 type AnthropicMessageResponse = {
   content: Array<{ type: string; text?: string }>;
+  stop_reason?: string;
 };
 
 export async function callClaude(params: {
@@ -31,6 +32,15 @@ export async function callClaude(params: {
   }
 
   const json = (await res.json()) as AnthropicMessageResponse;
+  
+  // Log stop reason for debugging
+  if (json.stop_reason) {
+    console.log(`  Claude stop_reason: ${json.stop_reason}`);
+  }
+  if (json.stop_reason === "max_tokens") {
+    console.warn("  WARNING: Response was truncated due to max_tokens limit");
+  }
+  
   const text = json.content
     .filter((c) => c.type === "text" && typeof c.text === "string")
     .map((c) => c.text)
