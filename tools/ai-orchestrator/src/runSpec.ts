@@ -92,10 +92,11 @@ async function findMostRecentAIPlan(repository: string, prNumber: number): Promi
   try {
     const comments = await getRecentComments({ repoFull: repository, prNumber });
 
-    // Find the most recent comment from github-actions bot that contains an AI Plan
+    // Find the most recent comment from github-actions bot that contains an AI Plan from Plan Mode
+    // (not from Implement Mode, which also generates plans)
     const aiPlanComment = comments
       .reverse() // Most recent first
-      .find((c) => c.user === "github-actions[bot]" && c.body.includes("## 🤖 AI Plan"));
+      .find((c) => c.user === "github-actions[bot]" && c.body.includes("## 🤖 AI Plan (Plan Mode)"));
 
     if (!aiPlanComment) return null;
 
