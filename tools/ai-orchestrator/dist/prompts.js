@@ -65,36 +65,32 @@ export function scopeResolverUserPrompt(plan, repoStructure) {
 export function implementerSystemPrompt() {
     return [
         "You are an expert software engineer implementing features.",
-        "You will receive a plan, scope, and file contents.",
-        "You must produce a unified diff patch that implements the requested changes.",
+        "You will receive a plan, scope, and current file contents.",
+        "You must output the COMPLETE updated contents for each file that needs changes.",
         "",
         "Rules:",
         "- Make ONLY the changes described in the plan.",
         "- Do not refactor unrelated code.",
-        "- Keep diffs minimal and focused.",
         "- Ensure code is syntactically correct.",
         "- Follow existing code style and patterns.",
+        "- Include the ENTIRE file content, not just the changed parts.",
         "",
-        "CRITICAL DIFF FORMAT - Your output MUST follow this EXACT structure:",
+        "OUTPUT FORMAT - Return a JSON object with this exact structure:",
+        '{',
+        '  "files": [',
+        '    {',
+        '      "path": "path/to/file.ts",',
+        '      "content": "full file content here..."',
+        '    }',
+        '  ],',
+        '  "summary": "Brief description of changes made"',
+        '}',
         "",
-        "diff --git a/path/to/file.ts b/path/to/file.ts",
-        "index abc1234..def5678 100644",
-        "--- a/path/to/file.ts",
-        "+++ b/path/to/file.ts",
-        "@@ -10,7 +10,8 @@ function example() {",
-        "   context line (unchanged)",
-        "-  old line to remove",
-        "+  new line to add",
-        "   context line (unchanged)",
-        "",
-        "RULES:",
-        "- Start output IMMEDIATELY with 'diff --git' - NO text before it",
-        "- NO markdown fences (```) anywhere",
-        "- NO explanations or comments after the diff",
+        "CRITICAL:",
+        "- Output ONLY valid JSON, no markdown fences, no extra text",
         "- Use paths relative to repo root (e.g., frontend/lib/math.ts)",
-        "- For NEW files: use '--- /dev/null' and 'new file mode 100644'",
-        "- Line counts in @@ headers must be accurate",
-        "- End each file's diff with a blank line"
+        "- For each file, include the COMPLETE file content with your changes applied",
+        "- Escape special characters properly in JSON strings (newlines as \\n, quotes as \\\")",
     ].join("\n");
 }
 export function implementerUserPrompt(params) {
@@ -105,25 +101,33 @@ export function implementerUserPrompt(params) {
         "Plan:",
         JSON.stringify(params.plan, null, 2),
         "",
-        "Scope:",
+        "Files to modify/create:",
         JSON.stringify(params.scope, null, 2),
         "",
         "Current file contents:",
         filesSection,
         "",
-        "Generate a unified diff patch implementing this plan."
+        "Output the complete updated file contents as JSON."
     ].join("\n");
 }
 export function fixerSystemPrompt() {
     return [
         "You are an expert software engineer debugging test failures.",
-        "You will receive a diff that was applied, test output showing failures, and relevant file contents.",
-        "You must produce a MINIMAL unified diff patch that fixes ONLY the failing tests.",
+        "You will receive test output showing failures and the current file contents.",
+        "Your job is to fix ONLY the failing tests with minimal changes.",
+        "",
         "Rules:",
         "- Fix ONLY what is broken; do not refactor or add features.",
-        "- Keep the diff as small as possible.",
-        "- Output MUST be a valid unified diff format.",
-        "- Do NOT wrap the diff in markdown fences."
+        "- Make the smallest possible changes to fix the tests.",
+        "",
+        "Output Format:",
+        "Return a JSON object with this exact structure:",
+        '{ "files": [{ "path": "relative/path/to/file.ext", "content": "...full file content..." }], "summary": "Brief description of fixes" }',
+        "",
+        "CRITICAL:",
+        "- Only include files you are modifying.",
+        "- Each file's content must be the COMPLETE file with your fixes applied.",
+        "- Output ONLY valid JSON, no markdown fences or other text."
     ].join("\n");
 }
 export function fixerUserPrompt(params) {
@@ -131,15 +135,12 @@ export function fixerUserPrompt(params) {
         .map((f) => `--- File: ${f.path} ---\n${f.content}`)
         .join("\n\n");
     return [
-        "Previous diff applied:",
-        params.previousDiff,
-        "",
         "Test failures:",
         params.testOutput,
         "",
         "Current file contents:",
         filesSection,
         "",
-        "Generate a minimal unified diff patch that fixes these test failures."
+        "Fix these test failures with minimal changes. Return JSON with the complete fixed files."
     ].join("\n");
 }

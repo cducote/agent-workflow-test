@@ -5,7 +5,7 @@ import { callAI } from "./aiProvider.js";
 import { plannerSystemPrompt, plannerUserPrompt, implementerSystemPrompt, implementerUserPrompt, fixerSystemPrompt, fixerUserPrompt, } from "./prompts.js";
 import { commentOnPullRequest } from "./github.js";
 import { resolveScope, readFileContents } from "./scope.js";
-import { applyPatch, summarizeDiff, extractDiffFromResponse } from "./patch.js";
+import { parseImplementationResponse, applyFileChanges, summarizeChanges } from "./patch.js";
 import { runTests, formatTestResults } from "./testRunner.js";
 function ensureOutDir() {
     const outDir = path.join(process.cwd(), "out");
@@ -134,45 +134,27 @@ async function runImplementMode(outDir) {
         maxTokens: runSpec.constraints.maxImplementTokens,
     });
     fs.writeFileSync(path.join(outDir, "claude-implement-raw.txt"), implRaw);
-    const diff = extractDiffFromResponse(implRaw);
-    fs.writeFileSync(path.join(outDir, "changes.patch"), diff);
-    // Save debug info: first 30 lines of sanitized patch
-    const patchPreview = diff.split("\n").slice(0, 30).join("\n");
-    fs.writeFileSync(path.join(outDir, "patch-preview.txt"), patchPreview);
-    // Step 5: Apply patch
-    console.log("  Step 5: Applying patch...");
-    const applyResult = applyPatch(diff);
-    if (!applyResult.success) {
-        const errorMsg = `Failed to apply patch: ${applyResult.error}`;
+    // Step 5: Parse and apply file changes
+    console.log("  Step 5: Parsing and applying changes...");
+    const implResult = parseImplementationResponse(implRaw);
+    if (!implResult) {
+        const errorMsg = "Failed to parse implementation response as JSON";
         fs.writeFileSync(path.join(outDir, "apply-error.txt"), errorMsg);
         console.error(errorMsg);
         if (runSpec.prNumber) {
-            // Include first 25 lines of patch in error for debugging
-            const debugPreview = diff.split("\n").slice(0, 25).map(l => `  ${l}`).join("\n");
-            // Also show first 300 chars of raw response
-            const rawPreview = implRaw.slice(0, 300).replace(/`/g, "'");
+            const rawPreview = implRaw.slice(0, 500).replace(/`/g, "'");
             await commentOnPullRequest({
                 repoFull: runSpec.repository,
                 prNumber: runSpec.prNumber,
                 body: [
                     "## 🤖 AI Implementation (Failed)",
                     "",
-                    "Could not apply the generated patch:",
-                    "```",
-                    applyResult.error,
-                    "```",
+                    "Could not parse AI response as JSON.",
                     "",
-                    "<details><summary>Raw AI response (first 300 chars)</summary>",
+                    "<details><summary>Raw AI response (first 500 chars)</summary>",
                     "",
                     "```",
                     rawPreview,
-                    "```",
-                    "</details>",
-                    "",
-                    "<details><summary>Extracted patch (first 25 lines)</summary>",
-                    "",
-                    "```diff",
-                    debugPreview,
                     "```",
                     "</details>",
                     "",
@@ -182,8 +164,34 @@ async function runImplementMode(outDir) {
         }
         return;
     }
-    const diffSummary = summarizeDiff(diff);
-    fs.writeFileSync(path.join(outDir, "diff-summary.txt"), diffSummary);
+    // Save parsed result
+    fs.writeFileSync(path.join(outDir, "implementation.json"), JSON.stringify(implResult, null, 2));
+    // Apply the file changes
+    const applyResult = applyFileChanges(implResult.files);
+    if (!applyResult.success) {
+        const errorMsg = `Failed to apply changes: ${applyResult.error}`;
+        fs.writeFileSync(path.join(outDir, "apply-error.txt"), errorMsg);
+        console.error(errorMsg);
+        if (runSpec.prNumber) {
+            await commentOnPullRequest({
+                repoFull: runSpec.repository,
+                prNumber: runSpec.prNumber,
+                body: [
+                    "## 🤖 AI Implementation (Failed)",
+                    "",
+                    "Could not apply file changes:",
+                    "```",
+                    applyResult.error,
+                    "```",
+                    "",
+                    "_Check artifacts for full details._",
+                ].join("\n"),
+            });
+        }
+        return;
+    }
+    const changeSummary = summarizeChanges(implResult);
+    fs.writeFileSync(path.join(outDir, "change-summary.txt"), changeSummary);
     // Step 6: Run tests
     console.log("  Step 6: Running tests...");
     const testCommands = plan.tests?.map((t) => t.command) || ["npm test"];
@@ -238,7 +246,7 @@ async function runImplementMode(outDir) {
                 "",
                 "### Changes",
                 "```",
-                diffSummary,
+                changeSummary,
                 "```",
                 "",
                 "### Test Results",
@@ -254,31 +262,29 @@ async function runFixMode(outDir) {
     const runSpec = await buildRunSpec();
     fs.writeFileSync(path.join(outDir, "runSpec.json"), JSON.stringify(runSpec, null, 2));
     console.log("Running Fix Mode...");
-    // Load previous artifacts (plan, scope, diff, test results)
+    // Load previous artifacts (plan, scope)
     let plan;
     let scope;
-    let previousDiff;
     try {
         plan = JSON.parse(fs.readFileSync(path.join(outDir, "plan.json"), "utf8"));
         scope = JSON.parse(fs.readFileSync(path.join(outDir, "scope.json"), "utf8"));
-        previousDiff = fs.readFileSync(path.join(outDir, "changes.patch"), "utf8");
     }
     catch (err) {
-        console.error("Fix mode requires previous run artifacts (plan.json, scope.json, changes.patch)");
+        console.error("Fix mode requires previous run artifacts (plan.json, scope.json)");
         fs.writeFileSync(path.join(outDir, "fix-error.txt"), "Missing artifacts from previous implement run.");
         return;
     }
     // Run tests to get current failures
     console.log("  Step 1: Running tests to identify failures...");
     const testCommands = plan.tests?.map((t) => t.command) || ["npm test"];
-    const testResults = runTests(testCommands);
-    const failedTests = testResults.filter((r) => !r.success);
+    let testResults = runTests(testCommands);
+    let failedTests = testResults.filter((r) => !r.success);
     if (failedTests.length === 0) {
         console.log("All tests passing; no fixes needed.");
         fs.writeFileSync(path.join(outDir, "fix-result.txt"), "All tests passing.");
         return;
     }
-    const testOutput = formatTestResults(failedTests);
+    let testOutput = formatTestResults(failedTests);
     // Bounded fix loop
     let iteration = 0;
     const maxIterations = runSpec.constraints.maxIterations;
@@ -289,19 +295,24 @@ async function runFixMode(outDir) {
         const fileContents = await readFileContents(scope);
         // Generate fix
         const fixSystem = fixerSystemPrompt();
-        const fixUser = fixerUserPrompt({ previousDiff, testOutput, fileContents });
+        const fixUser = fixerUserPrompt({ testOutput, fileContents });
         const fixRaw = await callAI({
             system: fixSystem,
             user: fixUser,
             maxTokens: runSpec.constraints.maxFixTokens,
         });
         fs.writeFileSync(path.join(outDir, `claude-fix-${iteration}-raw.txt`), fixRaw);
-        const fixDiff = extractDiffFromResponse(fixRaw);
-        fs.writeFileSync(path.join(outDir, `fix-${iteration}.patch`), fixDiff);
-        // Apply fix
-        const applyResult = applyPatch(fixDiff);
+        // Parse and apply fix
+        const fixResult = parseImplementationResponse(fixRaw);
+        if (!fixResult) {
+            console.error(`Failed to parse fix response as JSON`);
+            fs.writeFileSync(path.join(outDir, `fix-${iteration}-parse-error.txt`), "Could not parse AI response as JSON");
+            break;
+        }
+        fs.writeFileSync(path.join(outDir, `fix-${iteration}.json`), JSON.stringify(fixResult, null, 2));
+        const applyResult = applyFileChanges(fixResult.files);
         if (!applyResult.success) {
-            console.error(`Failed to apply fix patch: ${applyResult.error}`);
+            console.error(`Failed to apply fix: ${applyResult.error}`);
             fs.writeFileSync(path.join(outDir, `fix-${iteration}-apply-error.txt`), applyResult.error || "Unknown error");
             break;
         }
@@ -327,8 +338,8 @@ async function runFixMode(outDir) {
             }
             return;
         }
-        // Update for next iteration
-        previousDiff = fixDiff;
+        // Update test output for next iteration
+        testOutput = formatTestResults(retestResults.filter((r) => !r.success));
     }
     console.log(`Fix mode exhausted ${maxIterations} iterations; tests still failing.`);
     fs.writeFileSync(path.join(outDir, "fix-result.txt"), `Failed to fix after ${maxIterations} iterations.`);
