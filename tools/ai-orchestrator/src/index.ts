@@ -49,7 +49,7 @@ function planToMarkdown(plan: PlanJson): string {
   return [
     "## 🤖 AI Plan",
     "",
-    "_Mode: Plan Only (react with 👍 to implement)_",
+    "_Planning complete. Comment `/ai implement` to apply these changes._",
     "",
     plan.summary ? plan.summary : "",
     "",
