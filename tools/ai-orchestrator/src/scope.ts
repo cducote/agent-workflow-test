@@ -77,7 +77,7 @@ export async function readFileContents(
 }
 
 export async function getRepoStructure(): Promise<string> {
-  // List top-level structure and recursively list src/ and tests/ directories
+  // List top-level structure and recursively list important directories
   try {
     const entries = fs.readdirSync(".", { withFileTypes: true });
     const dirs = entries.filter((e) => e.isDirectory() && !e.name.startsWith(".")).map((e) => e.name);
@@ -93,12 +93,13 @@ export async function getRepoStructure(): Promise<string> {
       ...dirs.map((d) => `  ${d}/`),
     ];
 
-    // Recursively list src/ and tests/ to show actual code structure
-    for (const dir of ["src", "tests", "lib"]) {
-      if (dirs.includes(dir)) {
+    // Recursively list important directories to show actual code structure
+    // Include frontend/ for Next.js/React projects
+    for (const dir of ["src", "tests", "lib", "frontend", "frontend/components", "frontend/lib", "frontend/store", "frontend/app"]) {
+      if (fs.existsSync(dir)) {
         lines.push("", `Contents of ${dir}/:`);
         try {
-          const subFiles = walkDirectory(dir, 3); // Max depth 3
+          const subFiles = walkDirectory(dir, 2); // Max depth 2
           lines.push(...subFiles.map((f) => `  ${f}`));
         } catch (err) {
           lines.push(`  (unable to read ${dir}/)`);
