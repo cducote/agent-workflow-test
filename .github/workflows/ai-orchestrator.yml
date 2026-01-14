@@ -65,6 +65,21 @@ jobs:
           repository: ${{ steps.pr-branch.outputs.repo || github.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Checkout orchestrator from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: |
+            tools/ai-orchestrator
+          sparse-checkout-cone-mode: false
+          path: orchestrator-main
+
+      - name: Copy orchestrator from main
+        run: |
+          rm -rf tools/ai-orchestrator
+          cp -r orchestrator-main/tools/ai-orchestrator tools/
+          rm -rf orchestrator-main
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
