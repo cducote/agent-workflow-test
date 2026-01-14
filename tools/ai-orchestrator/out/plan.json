@@ -1,0 +1,51 @@
+{
+  "summary": "Add modulo operation (%) to the calculator by implementing the function in math libraries, adding UI button, updating calculator logic, and adding comprehensive tests.",
+  "steps": [
+    "Add modulo function to backend math library (src/math.js)",
+    "Add modulo function to frontend math library (frontend/lib/math.ts)",
+    "Update OperationButtons component to include % button",
+    "Update calculator store to handle modulo operation",
+    "Add tests for modulo operation in backend",
+    "Add tests for modulo operation in frontend",
+    "Test the complete feature integration"
+  ],
+  "files_to_modify": [
+    {
+      "path": "src/math.js",
+      "reason": "Add modulo function with zero-division error handling"
+    },
+    {
+      "path": "frontend/lib/math.ts",
+      "reason": "Add modulo function with TypeScript types and zero-division error handling"
+    },
+    {
+      "path": "frontend/components/OperationButtons.tsx",
+      "reason": "Add % button alongside existing operation buttons (+, -, ×, ÷)"
+    },
+    {
+      "path": "frontend/store/calculatorStore.ts",
+      "reason": "Add modulo to the list of supported operations"
+    },
+    {
+      "path": "tests/math.test.js",
+      "reason": "Add comprehensive tests for modulo operation including edge cases"
+    },
+    {
+      "path": "frontend/__tests__/math.test.ts",
+      "reason": "Add comprehensive tests for frontend modulo operation including edge cases"
+    }
+  ],
+  "files_to_create": [],
+  "tests": [
+    {
+      "command": "npm run test",
+      "reason": "Run all tests to verify modulo operation works correctly and doesn't break existing functionality"
+    }
+  ],
+  "risks": [
+    "Modulo by zero will throw an error that needs proper handling in the UI",
+    "Need to ensure modulo operation follows same precedence rules as other operations",
+    "Frontend and backend math implementations must be kept in sync",
+    "Existing calculator state management might need updates to handle new operation type"
+  ]
+}

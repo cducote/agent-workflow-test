@@ -1,0 +1,21 @@
+{
+  "mode": "implement",
+  "repository": "cducote/agent-workflow-test",
+  "sha": "6a759c3550a6cf75be633fbd06c4c1f6923736c3",
+  "prNumber": 29,
+  "featureText": "Add a modulo operation (%) to the calculator. It should work like the other binary operations (+, -, ×, ÷).\r\n\r\nRequirements:\r\n\r\nAdd a \"%\" button to the UI\r\nImplement modulo function in the math library\r\nAdd tests for the modulo operation\r\nHandle edge cases like modulo by zero",
+  "trigger": {
+    "eventName": "issue_comment",
+    "actor": "cducote",
+    "source": "issue_comment"
+  },
+  "constraints": {
+    "maxPlanTokens": 4000,
+    "maxImplementTokens": 32000,
+    "maxFixTokens": 16000,
+    "maxFiles": 20,
+    "maxFileBytes": 80000,
+    "maxIterations": 2,
+    "maxDiffLines": 300
+  }
+}

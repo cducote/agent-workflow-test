@@ -11,6 +11,7 @@ export default function OperationButtons() {
     { label: "×", op: "×" },
     { label: "-", op: "-" },
     { label: "+", op: "+" },
+    { label: "%", op: "%" },
     { label: "x²", op: "x²" },
     { label: "x³", op: "x³" },
   ];

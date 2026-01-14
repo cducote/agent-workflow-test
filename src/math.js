@@ -51,6 +51,23 @@ function subtract(a, b) {
 }
 
 /**
+ * Calculates the modulo (remainder) of the first number divided by the second number.
+ * @param {number} a - Dividend
+ * @param {number} b - Divisor
+ * @returns {number} The remainder of a divided by b, or 0 if either is null/undefined
+ * @throws {Error} Throws error if divisor is zero
+ */
+function modulo(a, b) {
+  if (a == null || b == null) {
+    return 0;
+  }
+  if (b === 0) {
+    throw new Error("Modulo by zero");
+  }
+  return a % b;
+}
+
+/**
  * Squares a number (raises it to the power of 2).
  * @param {number} x - The number to square
  * @returns {number|null} The square of x, or null if x is null/undefined
@@ -74,4 +91,4 @@ function cube(x) {
   return x * x * x;
 }
 
-module.exports = { add, multiply, divide, subtract, square, cube };
+module.exports = { add, multiply, divide, subtract, modulo, square, cube };

@@ -1,4 +1,4 @@
-import { add, subtract, multiply, divide, square, cube } from "@/lib/math";
+import { add, subtract, multiply, divide, modulo, square, cube } from "@/lib/math";
 
 describe("Math functions", () => {
   describe("add", () => {
@@ -66,6 +66,45 @@ describe("Math functions", () => {
     it("should handle null values", () => {
       expect(divide(null as any, 3)).toBe(0);
       expect(divide(5, null as any)).toBe(0);
+    });
+  });
+
+  describe("modulo", () => {
+    it("should calculate modulo of two positive numbers", () => {
+      expect(modulo(10, 3)).toBe(1);
+    });
+
+    it("should calculate modulo with zero result", () => {
+      expect(modulo(6, 3)).toBe(0);
+    });
+
+    it("should handle negative dividend", () => {
+      expect(modulo(-7, 3)).toBe(-1);
+    });
+
+    it("should handle negative divisor", () => {
+      expect(modulo(7, -3)).toBe(1);
+    });
+
+    it("should handle both negative numbers", () => {
+      expect(modulo(-7, -3)).toBe(-1);
+    });
+
+    it("should handle floating point numbers", () => {
+      expect(modulo(5.5, 2)).toBeCloseTo(1.5);
+    });
+
+    it("should throw error on modulo by zero", () => {
+      expect(() => modulo(5, 0)).toThrow("Modulo by zero");
+    });
+
+    it("should handle null values", () => {
+      expect(modulo(null as any, 3)).toBe(0);
+      expect(modulo(5, null as any)).toBe(0);
+    });
+
+    it("should handle edge case where dividend is smaller than divisor", () => {
+      expect(modulo(2, 5)).toBe(2);
     });
   });
 
