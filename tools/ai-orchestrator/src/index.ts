@@ -163,6 +163,10 @@ async function runImplementMode(outDir: string) {
 
   const diff = extractDiffFromResponse(implRaw);
   fs.writeFileSync(path.join(outDir, "changes.patch"), diff);
+  
+  // Save debug info: first 30 lines of sanitized patch
+  const patchPreview = diff.split("\n").slice(0, 30).join("\n");
+  fs.writeFileSync(path.join(outDir, "patch-preview.txt"), patchPreview);
 
   // Step 5: Apply patch
   console.log("  Step 5: Applying patch...");
@@ -173,6 +177,8 @@ async function runImplementMode(outDir: string) {
     console.error(errorMsg);
 
     if (runSpec.prNumber) {
+      // Include first 25 lines of patch in error for debugging
+      const debugPreview = diff.split("\n").slice(0, 25).map(l => `  ${l}`).join("\n");
       await commentOnPullRequest({
         repoFull: runSpec.repository,
         prNumber: runSpec.prNumber,
@@ -184,7 +190,14 @@ async function runImplementMode(outDir: string) {
           applyResult.error,
           "```",
           "",
-          "_Check artifacts for details._",
+          "<details><summary>Patch preview (first 25 lines)</summary>",
+          "",
+          "```diff",
+          debugPreview,
+          "```",
+          "</details>",
+          "",
+          "_Check artifacts for full details._",
         ].join("\n"),
       });
     }
