@@ -10,7 +10,7 @@ export function plannerSystemPrompt(): string {
     "- Do not propose repo-wide refactors.",
     "- Keep changes minimal and scoped.",
     "- Prefer targeted tests.",
-    "- For tests, use the existing test commands from package.json (typically 'npm test').",
+    "- CRITICAL: Use ONLY the test commands listed under 'Test commands' in the repo structure. Copy them exactly.",
     "- Output MUST be valid JSON that matches the schema provided.",
     "- Do not wrap JSON in markdown fences."
   ].join("\n");

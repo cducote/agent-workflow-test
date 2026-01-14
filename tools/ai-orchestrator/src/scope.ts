@@ -104,6 +104,9 @@ export async function getRepoStructure(): Promise<string> {
   // Find the actual repo root, not the current working directory
   const repoRoot = findRepoRoot();
   
+  // Discover where tests can be run
+  const testLocations = discoverTestLocations(repoRoot);
+  
   // List top-level structure and recursively list important directories
   try {
     const entries = fs.readdirSync(repoRoot, { withFileTypes: true });
@@ -113,6 +116,9 @@ export async function getRepoStructure(): Promise<string> {
     const lines = [
       "Repository structure:",
       `(root: ${repoRoot})`,
+      "",
+      "Test commands (use these exactly):",
+      ...testLocations.map((t) => `  ${t}`),
       "",
       "Root files:",
       ...files.map((f) => `  ${f}`),
@@ -164,6 +170,28 @@ function walkDirectory(dir: string, maxDepth: number, currentDepth = 0): string[
   } catch {
     return [];
   }
+}
+
+/** Discover package.json files with test scripts - helps AI know where to run tests */
+export function discoverTestLocations(repoRoot: string): string[] {
+  const locations: string[] = [];
+  const checkDirs = ["", "frontend", "backend", "src", "packages"];
+  
+  for (const dir of checkDirs) {
+    const pkgPath = path.join(repoRoot, dir, "package.json");
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+      const scripts = pkg.scripts || {};
+      const testCmd = scripts["test:ci"] ? "test:ci" : scripts["test"] ? "test" : null;
+      if (testCmd) {
+        const prefix = dir ? `cd ${dir} && ` : "";
+        locations.push(`${prefix}npm run ${testCmd}`);
+      }
+    } catch {
+      // No package.json or can't parse
+    }
+  }
+  return locations;
 }
 
 function safeJsonParse<T>(text: string): T {

@@ -5,6 +5,9 @@ const ALLOWED_TEST_COMMANDS = [
     'npm run test:ci',
     'jest',
     'vitest',
+    'cd frontend && npm',
+    'cd backend && npm',
+    'cd src && npm',
 ];
 export function runTests(commands) {
     const results = [];
