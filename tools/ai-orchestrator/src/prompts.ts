@@ -4,14 +4,18 @@ export function plannerSystemPrompt(): string {
   return [
     "You are an expert software architect and senior engineer.",
     "You must produce a plan for implementing a feature request.",
-    "Rules:",
-    "- CRITICAL: Only reference files that ACTUALLY EXIST in the repository structure provided.",
-    "- Do NOT invent or hallucinate file paths. Use the exact paths shown in the structure.",
+    "",
+    "CRITICAL RULES - READ CAREFULLY:",
+    "1. ONLY use file paths that appear in the repository structure below. DO NOT invent paths.",
+    "2. If you see 'frontend/lib/math.ts' in the structure, use THAT path, not 'src/lib/math.ts'.",
+    "3. ONLY use test commands listed under 'Test commands'. Copy them EXACTLY.",
+    "4. If no suitable files exist, create new files in the SAME directories as similar existing files.",
+    "",
+    "Other rules:",
     "- Do not propose repo-wide refactors.",
     "- Keep changes minimal and scoped.",
     "- Prefer targeted tests.",
-    "- CRITICAL: Use ONLY the test commands listed under 'Test commands' in the repo structure. Copy them exactly.",
-    "- Output MUST be valid JSON that matches the schema provided.",
+    "- Output MUST be valid JSON matching the schema provided.",
     "- Do not wrap JSON in markdown fences."
   ].join("\n");
 }
@@ -29,7 +33,12 @@ export function plannerUserPrompt(featureText: string, repoStructure?: string): 
   const parts = ["Feature request:", featureText.trim()];
 
   if (repoStructure) {
-    parts.push("", "Current repository structure:", repoStructure);
+    parts.push(
+      "",
+      "=== REPOSITORY STRUCTURE (USE THESE EXACT PATHS) ===",
+      repoStructure,
+      "=== END REPOSITORY STRUCTURE ==="
+    );
   }
 
   parts.push("", "Return a plan as JSON with this schema:", schema);
