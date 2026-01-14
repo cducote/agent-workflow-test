@@ -322,7 +322,9 @@ async function runFixMode(outDir) {
 }
 async function main() {
     const outDir = ensureOutDir();
-    const mode = process.env.INPUT_MODE || "plan";
+    // Get the mode from runSpec to ensure we use the parsed mode from issue_comment, etc.
+    const runSpec = await buildRunSpec();
+    const mode = runSpec.mode;
     try {
         if (mode === "plan") {
             await runPlanMode(outDir);
