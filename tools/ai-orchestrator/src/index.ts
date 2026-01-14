@@ -47,7 +47,7 @@ function planToMarkdown(plan: PlanJson): string {
   const risks = plan.risks?.length ? plan.risks.map((r) => `- ${r}`).join("\n") : "- (none)";
 
   return [
-    "## 🤖 AI Plan",
+    "## 🤖 AI Plan (Plan Mode)",
     "",
     "_Planning complete. Comment `/ai implement` to apply these changes._",
     "",
